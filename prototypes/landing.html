@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LedgerCrew AI — Your back-office, run by a crew that never sleeps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.halo.min.js"></script>
+<style>
+  :root {
+    --bg: #F3EEDD; --surface: #FFFDF6; --surface-2: #EAE2C9;
+    --ink: #1D1B14; --ink-soft: #6B6555; --line: #DCD2AE;
+    --amber: #B8791E; --amber-soft: #F1E0BE; --green: #2F6B57; --green-soft: #DCEAE3;
+    --red: #A63A2C; --red-soft: #F3DED9;
+    --shadow: 0 1px 2px rgba(20,18,10,0.06), 0 12px 32px -14px rgba(20,18,10,0.22);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #0F1613; --surface: #182420; --surface-2: #1F2E28;
+      --ink: #ECE6D3; --ink-soft: #A7A08D; --line: #2A3733;
+      --amber: #E3A63D; --amber-soft: #3A2E17; --green: #4FA189; --green-soft: #17332B;
+      --red: #E06A54; --red-soft: #3A1E19;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1613; --surface: #182420; --surface-2: #1F2E28;
+    --ink: #ECE6D3; --ink-soft: #A7A08D; --line: #2A3733;
+    --amber: #E3A63D; --amber-soft: #3A2E17; --green: #4FA189; --green-soft: #17332B;
+    --red: #E06A54; --red-soft: #3A1E19;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -14px rgba(0,0,0,0.55);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+  section { position: relative; }
+  a { color: inherit; }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 32px; backdrop-filter: blur(14px); background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--line); }
+  .brand { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 500; }
+  .brand span { color: var(--amber); }
+  .btn { border: none; border-radius: 999px; padding: 11px 20px; font-family: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; }
+  .btn-primary { background: var(--ink); color: var(--bg); }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+
+  /* hero */
+  .hero { min-height: 92vh; display: flex; align-items: center; overflow: hidden; }
+  #vantaHero { position: absolute; inset: 0; z-index: 0; opacity: 0.9; }
+  .hero-inner { position: relative; z-index: 1; padding: 80px 32px; max-width: 720px; margin: 0 auto; text-align: center; }
+  .hero-content { background: color-mix(in srgb, var(--bg) 4%, transparent); }
+  .eyebrow-free { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; margin-bottom: 28px; }
+  .hero h1 { font-family: 'Fraunces', serif; font-weight: 550; font-size: clamp(34px, 5.5vw, 58px); line-height: 1.08; margin: 0 0 22px; letter-spacing: -0.015em; }
+  .hero h1 em { font-style: normal; color: var(--amber); }
+  .hero p.sub { font-size: 17px; color: var(--ink-soft); max-width: 52ch; margin: 0 auto 34px; }
+  .hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn-lg { padding: 14px 26px; font-size: 14.5px; }
+
+  /* section shells */
+  .section { padding: 96px 0; }
+  .kicker { font-size: 13px; color: var(--amber); font-weight: 500; margin-bottom: 10px; }
+  .section h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: clamp(26px, 3.5vw, 36px); margin: 0 0 16px; max-width: 20ch; }
+  .section p.lede { color: var(--ink-soft); font-size: 15.5px; max-width: 56ch; margin: 0 0 48px; }
+
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+
+  /* pain points */
+  .pains { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 800px) { .pains { grid-template-columns: 1fr; } }
+  .pain-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
+  .pain-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); }
+  .pain-card h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 10px 0 8px; }
+  .pain-card p { font-size: 13.5px; color: var(--ink-soft); margin: 0; }
+
+  /* crew */
+  .crew-band { background: var(--surface-2); }
+  .crew-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  @media (max-width: 980px) { .crew-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .crew-grid { grid-template-columns: 1fr; } }
+  .crew-tile { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .crew-tile .letter { font-family: 'Fraunces', serif; font-size: 22px; width: 42px; height: 42px; border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; animation: glowFloat 3.4s ease-in-out infinite; }
+  @keyframes glowFloat {
+    0%, 100% { transform: translateY(0); box-shadow: 0 0 0 0 transparent; }
+    50% { transform: translateY(-5px); box-shadow: 0 0 16px 3px color-mix(in srgb, var(--amber) 45%, transparent); }
+  }
+  .crew-tile:nth-child(1) .letter { animation-delay: 0s; }
+  .crew-tile:nth-child(2) .letter { animation-delay: 0.4s; }
+  .crew-tile:nth-child(3) .letter { animation-delay: 0.8s; }
+  .crew-tile:nth-child(4) .letter { animation-delay: 1.2s; }
+  .crew-tile:nth-child(5) .letter { animation-delay: 1.6s; }
+  .crew-tile h4 { font-size: 14.5px; font-weight: 600; margin: 0 0 4px; }
+  .crew-tile p { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  .crew-tile .trace-line { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-soft); opacity: 0; transform: translateY(6px); transition: opacity 0.3s ease, transform 0.3s ease; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .crew-tile:hover .trace-line { opacity: 1; transform: translateY(0); }
+
+  /* differentiators */
+  .diff-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  @media (max-width: 760px) { .diff-grid { grid-template-columns: 1fr; } }
+  .diff-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 28px; box-shadow: var(--shadow); }
+  .diff-card .tag { display: inline-block; font-size: 11.5px; background: var(--green-soft); color: var(--green); padding: 4px 10px; border-radius: 999px; margin-bottom: 14px; }
+  .diff-card h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 19px; margin: 0 0 8px; }
+  .diff-card p { font-size: 13.5px; color: var(--ink-soft); margin: 0; }
+
+  /* stat strip */
+  .stat-strip { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; text-align: center; }
+  .stat b { font-family: 'Fraunces', serif; font-size: 34px; display: block; color: var(--amber); }
+  .stat span { font-size: 12.5px; color: var(--ink-soft); }
+
+  /* pricing */
+  .price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 700px; }
+  @media (max-width: 700px) { .price-grid { grid-template-columns: 1fr; } }
+  .price-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 30px; box-shadow: var(--shadow); }
+  .price-card.featured { border-color: var(--amber); position: relative; }
+  .price-card .plan { font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
+  .price-card .amt { font-family: 'Fraunces', serif; font-size: 32px; margin-bottom: 4px; }
+  .price-card .amt small { font-size: 13px; color: var(--ink-soft); font-family: 'IBM Plex Sans', sans-serif; }
+  .price-card ul { list-style: none; padding: 0; margin: 20px 0 0; font-size: 13px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 8px; }
+  .price-card ul li::before { content: '— '; color: var(--green); }
+
+  /* final cta */
+  .final-cta { text-align: center; padding: 110px 0; }
+  .final-cta h2 { font-size: clamp(28px, 4vw, 42px); }
+
+  footer { border-top: 1px solid var(--line); padding: 32px; text-align: center; font-size: 12.5px; color: var(--ink-soft); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { transition: none; opacity: 1; transform: none; }
+    .crew-tile .letter { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Ledger<span>Crew</span></div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-ghost">Sign in</button>
+    <button class="btn btn-primary">Get started free</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div id="vantaHero"></div>
+  <div class="hero-inner">
+    <div class="eyebrow-free">🟢 Free while you're getting started</div>
+    <h1>Five agents. One ledger. <em>Nobody chases payments alone anymore.</em></h1>
+    <p class="sub">LedgerCrew reads your invoices, files your GST paperwork, and chases late payers — while you get a two-line brief each morning instead of a stack of admin.</p>
+    <div class="hero-ctas">
+      <button class="btn btn-primary btn-lg">Get started free</button>
+      <button class="btn btn-ghost btn-lg">See it work →</button>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="kicker reveal">The problem</div>
+    <h2 class="reveal">Running a small business shouldn't mean running a second, unpaid job in admin.</h2>
+    <p class="lede reveal">Every month it's the same three things eating your evenings.</p>
+    <div class="pains">
+      <div class="pain-card reveal"><div class="pain-num">01</div><h3>GST, every quarter</h3><p>Sorting invoices by HSN code and hoping nothing's missing before the filing window closes.</p></div>
+      <div class="pain-card reveal"><div class="pain-num">02</div><h3>Clients who "forget"</h3><p>Writing the same awkward follow-up message, over and over, to people who owe you money.</p></div>
+      <div class="pain-card reveal"><div class="pain-num">03</div><h3>Not knowing your number</h3><p>Payroll's in ten days. Will three overdue invoices land in time? Nobody's sure.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section crew-band">
+  <div class="wrap">
+    <div class="kicker reveal">Meet the crew</div>
+    <h2 class="reveal">Five specialists. Each one does exactly one job, well.</h2>
+    <p class="lede reveal">Hover a card — this is roughly what each one is actually doing behind the scenes.</p>
+    <div class="crew-grid">
+      <div class="crew-tile reveal"><div class="letter">In</div><h4>Intake</h4><p>Reads invoices and receipts — photos, PDFs, forwarded on WhatsApp.</p><div class="trace-line">→ extracted ₹15,000, due 20 Sep, conf. 96%</div></div>
+      <div class="crew-tile reveal"><div class="letter">Co</div><h4>Compliance</h4><p>Classifies GST, flags mismatches, drafts your return.</p><div class="trace-line">→ HSN 9983 matched, no mismatch found</div></div>
+      <div class="crew-tile reveal"><div class="letter">Cl</div><h4>Collections</h4><p>Drafts staged reminders as invoices age — polite, then firm.</p><div class="trace-line">→ drafted reminder #2 for Sharma Textiles</div></div>
+      <div class="crew-tile reveal"><div class="letter">Gu</div><h4>Guardrail</h4><p>Checks every reminder's tone before it ever gets sent.</p><div class="trace-line">→ flagged line 2 as too curt, softened it</div></div>
+      <div class="crew-tile reveal"><div class="letter">Ca</div><h4>Cash-flow</h4><p>Forecasts the next 90 days so surprises stop being surprises.</p><div class="trace-line">→ payroll on the 30th: covered</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="kicker reveal">What makes this different</div>
+    <h2 class="reveal">Not another invoice dashboard.</h2>
+    <div class="diff-grid">
+      <div class="diff-card reveal"><span class="tag">Zero setup</span><h3>Forward a photo on WhatsApp</h3><p>No app to open. Send an invoice photo to your business number the same way you already send everything else.</p></div>
+      <div class="diff-card reveal"><span class="tag">Transparent</span><h3>Watch the crew think</h3><p>Every decision — extracted, flagged, drafted, approved — shows up live. Nothing happens in a black box.</p></div>
+      <div class="diff-card reveal"><span class="tag">Gets smarter</span><h3>Know who actually pays on time</h3><p>See a client's payment reliability before you even send the invoice, built from real patterns across businesses like yours.</p></div>
+      <div class="diff-card reveal"><span class="tag">Speaks your language</span><h3>Ask it out loud, in Hindi or Bengali</h3><p>A voice note asking what's owed this month gets a spoken answer back — no dashboard required.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background:var(--surface-2);">
+  <div class="wrap">
+    <div class="stat-strip">
+      <div class="stat reveal"><b>60M+</b><span>Indian MSMEs filing GST every quarter</span></div>
+      <div class="stat reveal"><b>5</b><span>agents working your ledger at once</span></div>
+      <div class="stat reveal"><b>₹0</b><span>to get started</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="kicker reveal">Pricing</div>
+    <h2 class="reveal">Start free. Pay when it's actually saving you time.</h2>
+    <div class="price-grid">
+      <div class="price-card reveal">
+        <div class="plan">Starter</div>
+        <div class="amt">₹0<small>/month</small></div>
+        <ul><li>Up to 5 invoices/month</li><li>GST compliance checks</li><li>Two reminder stages</li></ul>
+      </div>
+      <div class="price-card featured reveal">
+        <div class="plan">Growing business</div>
+        <div class="amt">₹499<small>/month</small></div>
+        <ul><li>Unlimited invoices</li><li>Full collections sequence</li><li>Cash-flow forecasting</li><li>WhatsApp intake</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final-cta">
+  <div class="wrap">
+    <h2 class="reveal">Your crew's ready when you are.</h2>
+    <div class="hero-ctas reveal" style="margin-top:24px;">
+      <button class="btn btn-primary btn-lg">Get started free</button>
+    </div>
+  </div>
+</section>
+
+<footer>LedgerCrew AI — built for small businesses that would rather run their business than their paperwork.</footer>
+
+<script>
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reduceMotion && window.VANTA) {
+    VANTA.HALO({
+      el: '#vantaHero', mouseControls: true, touchControls: true, gyroControls: false,
+      minHeight: 200, minWidth: 200,
+      baseColor: 0xdf9e3d, backgroundColor: 0x0c1210, amplitudeFactor: 1.6, size: 1.4, xOffset: 0.05
+    });
+  }
+
+  gsap.from('.hero-inner', { opacity: 0, y: 24, duration: 0.9, ease: 'power3.out', delay: 0.2 });
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach((el, i) => {
+    el.style.transitionDelay = (i % 6) * 0.06 + 's';
+    io.observe(el);
+  });
+</script>
+
+</body>
+</html>

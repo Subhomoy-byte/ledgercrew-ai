@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LedgerCrew AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.halo.min.js"></script>
+<style>
+  :root {
+    --bg: #F3EEDD;
+    --surface: #FFFDF6;
+    --surface-2: #EAE2C9;
+    --ink: #1D1B14;
+    --ink-soft: #6B6555;
+    --line: #DCD2AE;
+    --amber: #B8791E;
+    --amber-soft: #F1E0BE;
+    --green: #2F6B57;
+    --green-soft: #DCEAE3;
+    --red: #A63A2C;
+    --red-soft: #F3DED9;
+    --shadow: 0 1px 2px rgba(20,18,10,0.06), 0 12px 32px -14px rgba(20,18,10,0.22);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #0F1613; --surface: #182420; --surface-2: #1F2E28;
+      --ink: #ECE6D3; --ink-soft: #A7A08D; --line: #2A3733;
+      --amber: #E3A63D; --amber-soft: #3A2E17; --green: #4FA189; --green-soft: #17332B;
+      --red: #E06A54; --red-soft: #3A1E19;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1613; --surface: #182420; --surface-2: #1F2E28;
+    --ink: #ECE6D3; --ink-soft: #A7A08D; --line: #2A3733;
+    --amber: #E3A63D; --amber-soft: #3A2E17; --green: #4FA189; --green-soft: #17332B;
+    --red: #E06A54; --red-soft: #3A1E19;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -14px rgba(0,0,0,0.55);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    overflow-x: hidden; position: relative;
+  }
+
+  /* ambient drifting light — the "alive" background */
+  .aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.35; will-change: transform; }
+  .blob-a { width: 480px; height: 480px; background: var(--amber); top: -160px; left: -120px; }
+  .blob-b { width: 420px; height: 420px; background: var(--green); bottom: -180px; right: -100px; opacity: 0.22; }
+
+  .app { position: relative; z-index: 1; }
+
+  /* ---- nav ---- */
+  nav {
+    display: flex; align-items: center; gap: 28px;
+    padding: 20px 44px; position: sticky; top: 0; z-index: 20;
+    backdrop-filter: blur(14px) saturate(1.1);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
+  .brand span { color: var(--amber); }
+  .tabs { display: flex; gap: 4px; position: relative; margin-left: 8px; }
+  .tab {
+    padding: 8px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 500;
+    color: var(--ink-soft); cursor: pointer; position: relative; z-index: 2;
+    transition: color 0.25s ease;
+    background: none; border: none; font-family: inherit;
+  }
+  .tab.active { color: var(--bg); }
+  .tab-indicator {
+    position: absolute; top: 0; height: 100%; border-radius: 999px;
+    background: var(--ink); z-index: 1;
+  }
+  .nav-spacer { flex: 1; }
+  .btn {
+    border: none; border-radius: 999px; padding: 10px 18px; font-family: inherit;
+    font-size: 13.5px; font-weight: 500; cursor: pointer;
+  }
+  .btn-primary { background: var(--ink); color: var(--bg); }
+  .btn-primary:hover { transform: translateY(-1px); }
+
+  /* ---- on-duty strip ---- */
+  .duty-strip {
+    display: flex; gap: 10px; padding: 12px 44px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .duty-chip {
+    display: flex; align-items: center; gap: 7px; font-size: 12.5px;
+    padding: 6px 12px; border-radius: 999px; background: var(--surface);
+    border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-soft); position: relative; }
+  .dot.working { background: var(--amber); }
+  .dot.working::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1.5px solid var(--amber); animation: ring 1.6s ease-out infinite;
+  }
+  .dot.done { background: var(--green); }
+  @keyframes ring { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(2.2); opacity: 0; } }
+
+  main { padding: 40px 44px 80px; max-width: 1180px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h1.page-title { font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px; margin: 0 0 4px; }
+  .page-sub { color: var(--ink-soft); font-size: 14px; margin: 0 0 28px; }
+
+  /* corporate-tone dashboard additions */
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 6px; }
+  .card-head .eyebrow { margin-bottom: 3px; }
+  .masthead-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+  .compliance-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--green); background: var(--green-soft); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); padding: 5px 12px; border-radius: 999px; }
+  .compliance-badge::before { content: '✓'; font-size: 11px; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 22px; }
+  @media (max-width: 640px) { .kpi-row { grid-template-columns: 1fr; } }
+  .kpi-tile { border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; background: color-mix(in srgb, var(--surface-2) 55%, transparent); opacity: 0; }
+  .kpi-tile .kpi-label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px; }
+  .kpi-tile .kpi-value { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; }
+  .kpi-tile.flag-warn .kpi-value { color: var(--red); }
+  .kpi-tile.flag-amber .kpi-value { color: var(--amber); }
+  .kpi-tile.flag-ok .kpi-value { color: var(--green); }
+
+
+
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); opacity: 0; transform: translateY(16px);
+  }
+  .card-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .card-head h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 17px; margin: 0; }
+  .card-head .muted { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+
+  /* dashboard hero */
+  .hero { padding: 32px 36px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; margin-bottom: 24px; }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+  .hero-number { font-family: 'Fraunces', serif; font-weight: 500; font-size: 46px; line-height: 1.05; }
+  .hero-number small { font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 500; color: var(--ink-soft); display: block; margin-bottom: 8px; }
+  .hero-sub { color: var(--ink-soft); font-size: 14px; margin-top: 10px; max-width: 46ch; }
+  .hero-chips { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .chip { font-size: 12.5px; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); display: flex; align-items: center; gap: 6px; opacity: 0; transform: scale(0.8); }
+  .chip.warn { background: var(--red-soft); color: var(--red); }
+  .chip.ok { background: var(--green-soft); color: var(--green); }
+  .sparkline-card { background: var(--surface-2); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; }
+  .sparkline-label { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .sparkline-value { font-family: 'IBM Plex Mono', monospace; font-size: 19px; color: var(--green); }
+  #sparkline-path { stroke-dasharray: 300; stroke-dashoffset: 300; }
+
+  .grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* attention queue */
+  .attn-list { padding: 6px 22px 20px; display: flex; flex-direction: column; }
+  .attn-item { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0 16px 14px; border-bottom: 1px solid var(--line); border-left: 3px solid var(--line); opacity: 0; transform: translateX(-10px); }
+  .attn-item.priority-high { border-left-color: var(--red); }
+  .attn-item.priority-med { border-left-color: var(--amber); }
+  .attn-item:last-child { border-bottom: none; }
+  .attn-avatar { width: 34px; height: 34px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 13px; color: var(--ink-soft); flex-shrink: 0; }
+  .attn-body { flex: 1; min-width: 0; }
+  .attn-title { font-size: 13.5px; font-weight: 500; }
+  .attn-desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .attn-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn-sm { padding: 6px 13px; font-size: 12px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; }
+  .btn-sm.primary { background: var(--ink); color: var(--bg); }
+  .btn-sm.ghost { background: var(--surface-2); color: var(--ink); }
+  .attn-item.resolved { opacity: 0.45; pointer-events: none; }
+  .attn-item.resolved .attn-title::after { content: ' — done'; color: var(--green); font-weight: 400; }
+
+  /* mini ledger preview */
+  .mini-row { display: flex; align-items: center; gap: 12px; padding: 12px 22px; border-bottom: 1px solid var(--line); opacity: 0; transform: translateX(-10px); }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-row .client { flex: 1; font-size: 13.5px; }
+  .mini-row .amt { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+
+  /* health gauge */
+  .gauge-card-body { display: flex; align-items: center; gap: 20px; padding: 14px 22px 22px; }
+  .gauge-wrap { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+  .gauge-wrap svg { transform: rotate(-90deg); }
+  .gauge-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 24px; }
+  .dot.overdue { background: var(--red); }
+  .dot.overdue::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--red); animation: ring 1.6s ease-out infinite; }
+
+  /* financial calendar — glass treatment, deliberately different from the paper/solid cards */
+  .calendar-card {
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    backdrop-filter: blur(18px) saturate(1.3);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  }
+  .cal-top { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px 2px; }
+  .cal-month { font-family: 'Fraunces', serif; font-weight: 500; font-size: 16px; }
+  .cal-nav { display: flex; gap: 6px; }
+  .cal-nav button {
+    width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 70%, transparent); cursor: pointer; font-family: inherit; color: var(--ink);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  .cal-nav button:hover { border-color: var(--amber); }
+  .cal-legend { display: flex; gap: 16px; padding: 6px 22px 14px; font-size: 11.5px; color: var(--ink-soft); flex-wrap: wrap; }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 0 18px 6px; }
+  .cal-dow { text-align: center; font-size: 10px; color: var(--ink-soft); padding-bottom: 4px; }
+  .cal-cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 10px; font-size: 12px; position: relative; color: color-mix(in srgb, var(--ink-soft) 55%, transparent);
+    opacity: 0; transform: scale(0.85); gap: 3px;
+  }
+  .cal-cell.this-month { color: var(--ink); }
+  .cal-cell.today { border: 1.5px solid var(--amber); font-weight: 600; }
+  .cal-cell.marked { cursor: pointer; }
+  .cal-cell.marked:hover { background: color-mix(in srgb, var(--surface-2) 80%, transparent); }
+  .cal-cell.marked::after {
+    content: attr(data-tip);
+    position: absolute; bottom: 118%; left: 50%; transform: translateX(-50%) translateY(4px);
+    background: var(--ink); color: var(--bg); font-size: 11px; padding: 7px 11px; border-radius: 9px;
+    white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.22s ease, transform 0.22s ease;
+    box-shadow: var(--shadow); z-index: 5; font-family: 'IBM Plex Sans', sans-serif; font-weight: 400;
+  }
+  .cal-cell.marked:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .cal-upcoming { border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent); padding: 14px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .cal-up-row { display: flex; align-items: center; gap: 12px; font-size: 13px; opacity: 0; transform: translateX(-10px); }
+  .cal-up-title { flex: 1; }
+  .cal-up-when { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--ink-soft); }
+  .cal-up-agent { font-size: 10.5px; color: var(--ink-soft); background: color-mix(in srgb, var(--surface-2) 75%, transparent); padding: 3px 9px; border-radius: 999px; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .cal-nav button.shake { animation: shake 0.35s ease; }
+
+  /* privacy policy page */
+  .policy-card { padding: 40px 46px 50px; max-width: 780px; }
+  @media (max-width: 700px) { .policy-card { padding: 28px 22px 36px; } }
+  .policy-updated { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 28px; }
+  .policy-toc { background: var(--surface-2); border-radius: 12px; padding: 18px 22px; margin-bottom: 36px; }
+  .policy-toc .eyebrow { margin-bottom: 10px; }
+  .policy-toc ol { margin: 0; padding-left: 20px; columns: 2; font-size: 13px; color: var(--ink-soft); line-height: 2; }
+  @media (max-width: 560px) { .policy-toc ol { columns: 1; } }
+  .policy-toc a { text-decoration: none; color: var(--ink-soft); transition: color 0.2s ease; }
+  .policy-toc a:hover { color: var(--amber); }
+  .policy-section { margin-bottom: 32px; scroll-margin-top: 90px; }
+  .policy-section h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0 0 12px; display: flex; align-items: baseline; gap: 10px; }
+  .policy-section h3 .num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--amber); font-weight: 400; }
+  .policy-section p, .policy-section li { font-size: 13.5px; color: var(--ink-soft); line-height: 1.75; margin: 0 0 10px; }
+  .policy-section ul { margin: 0 0 10px; padding-left: 20px; }
+  .policy-section strong { color: var(--ink); font-weight: 600; }
+  .policy-callout { background: var(--amber-soft); border-left: 3px solid var(--amber); border-radius: 0 10px 10px 0; padding: 14px 18px; font-size: 12.5px; color: var(--ink); margin-bottom: 28px; }
+  .policy-contact { background: var(--surface-2); border-radius: 12px; padding: 20px 22px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.8; }
+
+  /* ask your crew + chat panel */
+  .ask-crew-input {
+    width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+    border-radius: 14px; border: 1px solid var(--line); background: var(--bg); cursor: pointer;
+    font-family: inherit; text-align: left; transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .ask-crew-input:hover { border-color: var(--amber); transform: translateY(-1px); }
+  .ask-icon { font-size: 17px; flex-shrink: 0; }
+  .ask-placeholder { color: var(--ink-soft); font-size: 13.5px; }
+  .chat-suggestions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chat-suggestion { font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; cursor: pointer; color: var(--ink-soft); transition: border-color 0.2s ease, color 0.2s ease; }
+  .chat-suggestion:hover { border-color: var(--amber); color: var(--ink); }
+
+  .chat-panel {
+    position: fixed; bottom: 28px; right: 28px; z-index: 45;
+    width: 360px; max-width: calc(100vw - 40px); height: 480px; max-height: 70vh;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
+    opacity: 0; transform: translateY(20px) scale(0.96); pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .chat-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .chat-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .chat-head .avatar-mini { width: 32px; height: 32px; border-radius: 9px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 13px; flex-shrink: 0; }
+  .chat-head h4 { margin: 1px 0 0; font-family: 'Fraunces', serif; font-weight: 500; font-size: 14.5px; }
+  .chat-close { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--ink-soft); font-size: 15px; padding: 4px; }
+  .chat-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-msg { max-width: 84%; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; opacity: 0; transform: translateY(6px); }
+  .chat-msg.bot { background: var(--surface-2); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .chat-msg.user { background: var(--ink); color: var(--bg); align-self: flex-end; border-bottom-right-radius: 4px; }
+  .chat-typing { display: flex; gap: 4px; padding: 12px 14px; background: var(--surface-2); border-radius: 14px; align-self: flex-start; width: fit-content; }
+  .chat-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-soft); display: block; animation: typingDot 1.2s infinite; }
+  .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+  .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingDot { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+  .chat-input-row { display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .chat-input-row input { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; font-family: inherit; font-size: 13px; background: var(--bg); color: var(--ink); outline: none; transition: border-color 0.2s ease; }
+  .chat-input-row input:focus { border-color: var(--amber); }
+  .chat-send, .chat-mic { width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .chat-send { background: var(--ink); color: var(--bg); }
+  .chat-mic { background: var(--surface-2); color: var(--ink); }
+  @media (max-width: 480px) {
+    .chat-panel { right: 14px; left: 14px; width: auto; bottom: 14px; }
+  }
+  .gauge-legend { font-size: 12.5px; color: var(--ink-soft); line-height: 1.7; }
+  .gauge-legend b { color: var(--ink); font-weight: 600; }
+
+  /* resources page */
+  .resources-wrap { position: relative; }
+  .rupee-bg { position: absolute; inset: -20px -20px auto -20px; height: 100%; min-height: 600px; overflow: hidden; z-index: 0; pointer-events: none; }
+  .rupee-bg span {
+    position: absolute; font-family: 'Fraunces', serif; color: var(--amber); opacity: 0.07;
+    animation: rupeeDrift 12s ease-in-out infinite;
+  }
+  @keyframes rupeeDrift { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-18px) rotate(4deg); } }
+  @media (prefers-reduced-motion: reduce) { .rupee-bg span { animation: none; } }
+  .resources-content { position: relative; z-index: 1; }
+
+  .qna-card { padding: 34px 38px; }
+  @media (max-width: 640px) { .qna-card { padding: 26px 22px; } }
+  .qna-card .eyebrow { font-size: 12px; }
+  .qna-title { font-family: 'Fraunces', serif; font-weight: 500; font-size: 24px; margin: 0 0 20px; }
+  .qna-input-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .qna-input-row input {
+    flex: 1; padding: 16px 20px; font-size: 16px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font-family: inherit; outline: none; transition: border-color 0.2s ease;
+  }
+  .qna-input-row input:focus { border-color: var(--amber); }
+  .qna-input-row button {
+    padding: 0 26px; border-radius: 14px; border: none; background: var(--ink); color: var(--bg);
+    font-size: 16px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .qna-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .qna-chip {
+    font-size: 14px; background: var(--surface-2); border: 1px solid var(--line); padding: 9px 16px;
+    border-radius: 999px; cursor: pointer; color: var(--ink); transition: border-color 0.2s ease;
+  }
+  .qna-chip:hover { border-color: var(--amber); }
+  .qna-answer {
+    margin-top: 22px; padding: 22px 24px; background: var(--surface-2); border-radius: 14px;
+    display: none; opacity: 0;
+  }
+  .qna-answer.show { display: block; }
+  .qna-answer p { font-size: 17px; line-height: 1.6; margin: 0 0 16px; color: var(--ink); }
+  .qna-answer a.qna-go {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--ink); color: var(--bg);
+    padding: 12px 22px; border-radius: 999px; text-decoration: none; font-size: 15px; font-weight: 600;
+  }
+
+  .link-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin: 28px 0; }
+  @media (max-width: 700px) { .link-grid { grid-template-columns: 1fr; } }
+  .link-round-card {
+    display: block; text-decoration: none; color: inherit; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 20px; padding: 26px 28px; box-shadow: var(--shadow);
+    transition: transform 0.2s ease, border-color 0.2s ease; opacity: 0;
+  }
+  .link-round-card:hover { transform: translateY(-2px); border-color: var(--amber); }
+  .link-round-card .link-icon {
+    width: 50px; height: 50px; border-radius: 50%; background: var(--amber-soft); color: var(--amber);
+    display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600;
+    font-family: 'Fraunces', serif; margin-bottom: 16px;
+  }
+  .link-round-card h4 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 19px; margin: 0 0 8px; }
+  .link-round-card p { font-size: 14.5px; color: var(--ink-soft); margin: 0 0 10px; line-height: 1.5; }
+  .link-round-card .link-url { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--amber); }
+
+  .calc-proof { padding: 30px 34px; }
+  @media (max-width: 640px) { .calc-proof { padding: 22px 20px; } }
+  .calc-row {
+    display: flex; justify-content: space-between; align-items: center; padding: 12px 0;
+    border-bottom: 1px dashed var(--line); font-size: 15px;
+  }
+  .calc-row:last-child { border-bottom: none; }
+  .calc-row.total { border-top: 2px solid var(--ink); border-bottom: none; margin-top: 4px; padding-top: 16px; font-weight: 600; font-size: 16.5px; }
+  .calc-row .calc-val { font-family: 'IBM Plex Mono', monospace; }
+  .calc-note { margin-top: 18px; font-size: 13.5px; color: var(--ink-soft); background: var(--surface-2); padding: 14px 18px; border-radius: 10px; line-height: 1.6; }
+  .ledger { background: #FFFDF6; color: #1D1B14; border-radius: 0 0 16px 16px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 12px; font-weight: 500; color: #8A8168; padding: 12px 22px 10px; border-bottom: 1px solid #E4DBBF; }
+  tbody td { padding: 13px 22px; font-size: 13.5px; border-bottom: 1px solid #EFE9D3; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { opacity: 0; transform: translateX(-10px); transition: background 0.2s ease; }
+  tbody tr:hover { background: #FBF6E7; }
+  .amount { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+  .status-pill { font-size: 11.5px; padding: 4px 10px; border-radius: 999px; display: inline-block; }
+  .status-pill.overdue { background: #F3DED9; color: #A63A2C; }
+  .status-pill.due { background: #F1E0BE; color: #8A5B14; }
+  .status-pill.paid { background: #DCEAE3; color: #2F6B57; }
+
+  .feed { padding: 18px 22px 8px; display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; }
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 9px; background: var(--ink); color: var(--bg);
+    padding: 9px 18px; border-radius: 999px; font-weight: 600; font-size: 12.5px; flex-shrink: 0;
+  }
+  .live-badge .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5c5c; animation: liveBlink 1.4s ease-in-out infinite; }
+  @keyframes liveBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  .activity-box {
+    border-radius: 14px; padding: 13px 16px; display: flex; gap: 10px; align-items: center;
+    border: 1px solid; font-size: 13.5px; opacity: 0; transform: translateX(-10px);
+  }
+  .activity-box .icon { font-size: 15px; line-height: 1; flex-shrink: 0; }
+  .activity-box .txt { flex: 1; }
+  .activity-box .txt .who { font-weight: 600; }
+  .activity-time { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); flex-shrink: 0; }
+  .activity-box.note { background: var(--surface-2); border-color: var(--line); }
+  .activity-box.note .who { color: var(--ink); }
+  .activity-box.good { background: var(--green-soft); border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+  .activity-box.good .who { color: var(--green); }
+  .activity-box.flag { background: var(--red-soft); border-color: var(--red); animation: activityBlink 1.4s ease-in-out infinite; }
+  .activity-box.flag .who { color: var(--red); }
+  @keyframes activityBlink {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 22%, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .activity-box.flag, .live-badge .live-dot { animation: none !important; }
+  }
+
+  .timeline { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 0; }
+  .stage { display: flex; gap: 14px; opacity: 0; transform: translateY(10px); }
+  .stage-marker { display: flex; flex-direction: column; align-items: center; }
+  .stage-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); border: 2px solid var(--line); flex-shrink: 0; }
+  .stage-dot.active { background: var(--amber); border-color: var(--amber); }
+  .stage-line { width: 2px; flex: 1; background: var(--line); margin: 2px 0; min-height: 34px; transform-origin: top; transform: scaleY(0); }
+  .stage-line.filled { background: var(--amber); }
+  .stage-body { padding-bottom: 20px; }
+  .stage-title { font-size: 13.5px; font-weight: 500; }
+  .stage-desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .stage-tag { display: inline-block; margin-top: 6px; font-size: 11px; background: var(--surface-2); color: var(--ink-soft); padding: 3px 8px; border-radius: 6px; }
+
+  .nudge { margin: 0 22px 22px; background: var(--green-soft); border: 1px solid var(--green); border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 14px; font-size: 13.5px; }
+  .nudge .num { font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+
+  /* crew view */
+  .crew-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+  .crew-card { padding: 22px; cursor: pointer; overflow: hidden; }
+  .crew-card-top { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 16px; position: relative; animation: glowFloat 3.4s ease-in-out infinite; }
+
+  @keyframes glowFloat {
+    0%, 100% { transform: translateY(0); box-shadow: 0 0 0 0 transparent; }
+    50% { transform: translateY(-5px); box-shadow: 0 0 16px 3px color-mix(in srgb, var(--amber) 45%, transparent); }
+  }
+  .mini-avatar { animation: glowFloat 3.4s ease-in-out infinite; }
+  .attn-avatar { animation: calmPulse 3.4s ease-in-out infinite; }
+  @keyframes calmPulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 10px 1px color-mix(in srgb, var(--amber) 30%, transparent); }
+  }
+  .crew-card:nth-child(1) .avatar, .mini-avatar:nth-child(1) { animation-delay: 0s; }
+  .crew-card:nth-child(2) .avatar, .mini-avatar:nth-child(2) { animation-delay: 0.4s; }
+  .crew-card:nth-child(3) .avatar, .mini-avatar:nth-child(3) { animation-delay: 0.8s; }
+  .crew-card:nth-child(4) .avatar, .mini-avatar:nth-child(4) { animation-delay: 1.2s; }
+  .crew-card:nth-child(5) .avatar, .mini-avatar:nth-child(5) { animation-delay: 1.6s; }
+  .attn-item:nth-child(1) .attn-avatar { animation-delay: 0.2s; }
+  .attn-item:nth-child(2) .attn-avatar { animation-delay: 0.9s; }
+  .avatar .ring { position: absolute; inset: -4px; border-radius: 14px; border: 2px solid var(--amber); opacity: 0; }
+  .crew-card.working .avatar .ring { opacity: 1; animation: ring2 2s ease-in-out infinite; }
+  @keyframes ring2 { 0%,100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.08); opacity: 0.2; } }
+  .crew-card-name { font-weight: 600; font-size: 14.5px; }
+  .crew-card-role { font-size: 12px; color: var(--ink-soft); }
+  .crew-card-status { margin-top: 14px; font-size: 12.5px; color: var(--ink-soft); }
+  .trace { max-height: 0; overflow: hidden; transition: max-height 0.45s cubic-bezier(0.65,0,0.35,1); font-size: 12.5px; color: var(--ink-soft); border-top: 1px dashed var(--line); margin-top: 0; }
+  .trace-inner { padding-top: 12px; }
+  .crew-card.open .trace { max-height: 160px; margin-top: 14px; }
+
+  /* cash-flow bars */
+  .bars { display: flex; align-items: flex-end; gap: 10px; height: 180px; padding: 24px 22px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .bar { width: 100%; border-radius: 6px 6px 0 0; background: var(--green); transform: scaleY(0); transform-origin: bottom; }
+  .bar-label { font-size: 11px; color: var(--ink-soft); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    .dot.working::after, .crew-card.working .avatar .ring { animation: none !important; }
+  }
+
+  @media (max-width: 760px) {
+    nav { padding: 16px 20px; flex-wrap: wrap; }
+    main { padding: 24px 20px 40px; }
+    .duty-strip { padding: 10px 20px; }
+  }
+
+  #vantaBg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+  #loginScreen.no-webgl #vantaBg {
+    background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--amber) 25%, var(--bg)), var(--bg) 65%);
+  }
+  .login-float { z-index: 1; }
+
+  /* ---- login screen ---- */
+  #loginScreen {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; transition: opacity 0.6s ease, filter 0.6s ease;
+  }
+  #loginScreen.hidden { opacity: 0; pointer-events: none; filter: blur(8px); }
+
+  .login-float {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 12px; background: var(--surface);
+    border: 1px solid var(--line); box-shadow: var(--shadow);
+    font-family: 'Fraunces', serif; font-size: 14px; color: var(--ink-soft);
+    animation: floatyGlow 6s ease-in-out infinite;
+  }
+  @keyframes floatyGlow {
+    0%, 100% { transform: translateY(0); box-shadow: var(--shadow); }
+    50% { transform: translateY(-14px); box-shadow: var(--shadow), 0 0 20px 4px color-mix(in srgb, var(--amber) 40%, transparent); }
+  }
+
+  .login-card-wrap { perspective: 1000px; position: relative; z-index: 2; }
+  .login-card {
+    width: min(400px, 100%); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 22px; padding: 40px 36px; box-shadow: var(--shadow);
+    position: relative; overflow: hidden; transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+  }
+  .login-card::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(220px circle at var(--mx,50%) var(--my,50%), color-mix(in srgb, var(--amber) 16%, transparent), transparent 70%);
+    transition: opacity 0.3s ease;
+  }
+  .login-card:hover::before { opacity: 1; }
+
+  .login-wave { font-family: 'Fraunces', serif; font-size: 27px; font-weight: 500; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .login-wave span { display: inline-block; animation: wave 2.6s ease-in-out infinite; }
+  @keyframes wave { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-7px); } }
+
+  .cursor { display: inline-block; width: 2px; height: 1em; background: var(--ink-soft); margin-left: 2px; vertical-align: -3px; animation: blink 0.9s steps(1) infinite; }
+  .login-brand { font-family: 'Fraunces', serif; font-size: 13.5px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 24px; min-height: 17px; }
+  .login-brand .amber { color: var(--amber); }
+
+  .login-sub { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 28px; min-height: 20px; }
+  .login-sub .cursor { display: inline-block; width: 1px; background: var(--ink-soft); margin-left: 1px; animation: blink 0.9s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .field { margin-bottom: 16px; position: relative; }
+  .field label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease; outline: none;
+  }
+  .field input:focus { border-color: var(--amber); box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 18%, transparent); }
+
+  .login-btn {
+    width: 100%; margin-top: 6px; padding: 13px; position: relative; overflow: hidden;
+  }
+  .login-btn span { position: relative; z-index: 1; }
+
+  .login-alt {
+    width: 100%; margin-top: 10px; padding: 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-family: inherit; font-size: 13.5px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  .login-alt:hover { transform: translateY(-1px); border-color: var(--green); }
+  #googleBtn { background: #FFFFFF; color: #3c4043; border-color: #dadce0; }
+  #googleBtn:hover { border-color: #4285F4; box-shadow: 0 2px 8px rgba(60,64,67,0.15); }
+
+  .login-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; font-size: 11.5px; color: var(--ink-soft); }
+  .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  .login-crew-row { display: flex; gap: -8px; margin-top: 26px; justify-content: center; }
+  .mini-avatar {
+    width: 26px; height: 26px; border-radius: 8px; background: var(--surface-2); border: 2px solid var(--surface);
+    display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink-soft); margin-left: -8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="aurora"><div class="blob blob-a"></div><div class="blob blob-b"></div></div>
+
+<div id="loginScreen">
+  <div id="vantaBg"></div>
+  <div class="login-float" style="top:14%; left:12%; animation-delay:0s;">In</div>
+  <div class="login-float" style="top:22%; right:14%; animation-delay:1.2s;">Co</div>
+  <div class="login-float" style="bottom:20%; left:16%; animation-delay:2.1s;">Cl</div>
+  <div class="login-float" style="bottom:16%; right:10%; animation-delay:0.6s;">Gu</div>
+  <div class="login-float" style="top:48%; left:6%; animation-delay:1.7s;">Ca</div>
+
+  <div class="login-card-wrap">
+    <div class="login-card" id="loginCard">
+      <div class="login-brand" id="loginBrand"><span class="cursor"></span></div>
+      <h1 class="login-wave" id="loginWave"></h1>
+      <p class="login-sub" id="loginSub"><span class="cursor"></span></p>
+
+      <button class="login-alt" id="googleBtn">
+        <svg width="17" height="17" viewBox="0 0 18 18" style="flex-shrink:0;">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <button class="login-alt" id="waBtn">💬 Continue with WhatsApp</button>
+
+      <div class="login-divider"><span>or sign in with email</span></div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@business.com">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••">
+      </div>
+
+      <button class="btn btn-primary login-btn" id="loginBtn"><span>Sign in</span></button>
+
+      <div class="login-crew-row">
+        <div class="mini-avatar">In</div><div class="mini-avatar">Co</div><div class="mini-avatar">Cl</div>
+        <div class="mini-avatar">Gu</div><div class="mini-avatar">Ca</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="mainApp">
+  <nav>
+    <div class="brand">Ledger<span>Crew</span></div>
+    <div class="tabs" id="tabs">
+      <div class="tab-indicator" id="tabIndicator"></div>
+      <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="ledger">Ledger</button>
+      <button class="tab" data-view="collections">Collections</button>
+      <button class="tab" data-view="crew">Crew</button>
+      <button class="tab" data-view="privacy">Privacy</button>
+      <button class="tab" data-view="resources">Resources</button>
+    </div>
+    <div class="nav-spacer"></div>
+    <button class="btn btn-primary">Upload invoice</button>
+  </nav>
+
+  <div class="duty-strip">
+    <span class="duty-chip"><span class="dot working"></span>Intake — reading</span>
+    <span class="duty-chip"><span class="dot done"></span>Compliance — done</span>
+    <span class="duty-chip"><span class="dot working"></span>Collections — drafting</span>
+    <span class="duty-chip"><span class="dot"></span>Guardrail — waiting</span>
+    <span class="duty-chip"><span class="dot done"></span>Cash-flow — done</span>
+  </div>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <section class="view active" data-view="dashboard">
+      <div class="eyebrow">Dashboard</div>
+      <div class="masthead-row">
+        <h1 class="page-title">Good morning. Here's where things stand.</h1>
+        <span class="compliance-badge">GST compliant</span>
+      </div>
+      <p class="page-sub">Thursday, 17 September — Kolkata</p>
+
+      <div class="card hero">
+        <div>
+          <div class="hero-number"><small>Outstanding right now</small>₹<span id="heroNum">0</span></div>
+          <div class="hero-sub">Across 12 open invoices. Three have crossed their due date — Collections is already on two of them.</div>
+          <div class="kpi-row">
+            <div class="kpi-tile flag-warn"><div class="kpi-label">Overdue</div><div class="kpi-value">3 invoices</div></div>
+            <div class="kpi-tile flag-amber"><div class="kpi-label">GST filing</div><div class="kpi-value">Due in 6 days</div></div>
+            <div class="kpi-tile flag-ok"><div class="kpi-label">Cash position</div><div class="kpi-value">Healthy</div></div>
+          </div>
+        </div>
+        <div class="sparkline-card">
+          <div>
+            <div class="sparkline-label">30-day cash forecast</div>
+            <div class="sparkline-value">↑ ₹2.1L by Oct 15</div>
+          </div>
+          <svg viewBox="0 0 220 60" width="100%" height="60" style="margin-top:14px;">
+            <polyline id="sparkline-path" points="0,45 25,42 50,38 75,40 100,30 125,32 150,20 175,18 200,10 220,8"
+              fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-head">
+          <div><div class="eyebrow">Priority queue</div><h2>Needs your attention</h2></div>
+          <span class="muted">2 open</span>
+        </div>
+        <div class="attn-list" id="attnList">
+          <div class="attn-item priority-med">
+            <div class="attn-avatar">Gu</div>
+            <div class="attn-body">
+              <div class="attn-title">A reminder to Sharma Textiles is ready to send</div>
+              <div class="attn-desc">Guardrail approved the tone — this one's set to "approve before send."</div>
+              <div class="attn-actions">
+                <button class="btn-sm primary" data-resolve="Sent">Send it</button>
+                <button class="btn-sm ghost">Edit first</button>
+              </div>
+            </div>
+          </div>
+          <div class="attn-item priority-high">
+            <div class="attn-avatar">Co</div>
+            <div class="attn-body">
+              <div class="attn-title">INV-0430 is missing a GSTIN</div>
+              <div class="attn-desc">Compliance can't file this one until the client's GSTIN is added.</div>
+              <div class="attn-actions">
+                <button class="btn-sm primary" data-resolve="Added">Add it now</button>
+                <button class="btn-sm ghost">Remind me later</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card ask-crew-card" style="margin-bottom:24px;">
+        <div class="card-head">
+          <div><div class="eyebrow">Ask your crew</div><h2>Have a question about your business?</h2></div>
+        </div>
+        <div style="padding: 4px 22px 22px;">
+          <button class="ask-crew-input" id="askCrewOpen" type="button">
+            <span class="ask-icon">💬</span>
+            <span class="ask-placeholder">Ask anything — "How much am I owed this month?", "When's my GST due?"…</span>
+          </button>
+          <div class="chat-suggestions" style="padding: 12px 0 0;">
+            <span class="chat-suggestion" data-q="How much am I owed right now?">How much am I owed right now?</span>
+            <span class="chat-suggestion" data-q="When is my GST filing due?">When is my GST filing due?</span>
+            <span class="chat-suggestion" data-q="Will I make payroll this month?">Will I make payroll this month?</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card activity-card" style="margin-bottom:24px;">
+        <div class="card-head">
+          <div><div class="eyebrow">What the crew is doing right now</div><h2>Latest activity</h2></div>
+          <span class="live-badge"><span class="live-dot"></span>Live</span>
+        </div>
+        <div class="feed" id="feed">
+          <div class="activity-box note"><span class="icon">🔵</span><span class="txt"><span class="who">Intake</span> read a forwarded photo from Anjali Freelance Co. — extracted ₹15,000.</span><span class="activity-time">9:14</span></div>
+          <div class="activity-box note"><span class="icon">🔵</span><span class="txt"><span class="who">Collections</span> drafted a reminder for Sharma Textiles (12 days overdue).</span><span class="activity-time">9:15</span></div>
+          <div class="activity-box good"><span class="icon">✅</span><span class="txt"><span class="who">Guardrail</span> reviewed the draft — tone is firm but fair. Approved.</span><span class="activity-time">9:15</span></div>
+          <div class="activity-box flag"><span class="icon">⚠️</span><span class="txt"><span class="who">Compliance</span> flagged a missing GSTIN on INV-0430 — needs your review.</span><span class="activity-time">9:16</span></div>
+        </div>
+        <div style="padding: 4px 22px 20px;">
+          <button class="btn btn-ghost" style="width:100%;">View all activity</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-head"><div><div class="eyebrow">Ledger snapshot</div><h2>Top of your ledger</h2></div><span class="muted">3 most urgent</span></div>
+        <div id="miniLedger">
+          <div class="mini-row"><span class="client">Sharma Textiles</span><span class="amt">₹42,000</span><span class="status-pill overdue">12d overdue</span></div>
+          <div class="mini-row"><span class="client">Bose Digital Studio</span><span class="amt">₹28,500</span><span class="status-pill overdue">6d overdue</span></div>
+          <div class="mini-row"><span class="client">Anjali Freelance Co.</span><span class="amt">₹15,000</span><span class="status-pill due">Due Fri</span></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:24px;">
+        <div class="card">
+          <div class="card-head"><div><div class="eyebrow">Weekly summary</div><h2>This week's brief</h2></div></div>
+          <div style="padding:18px 22px 22px; font-size:13.5px; color:var(--ink-soft); line-height:1.7;">
+            Three clients are past due. GST filing window closes in 6 days — Compliance has a draft ready. Cash position stays healthy through October even if Sharma Textiles pays late.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="eyebrow">Health score</div><h2>Business health</h2></div></div>
+          <div class="gauge-card-body">
+            <div class="gauge-wrap">
+              <svg width="108" height="108" viewBox="0 0 108 108">
+                <circle cx="54" cy="54" r="46" fill="none" stroke="var(--surface-2)" stroke-width="10"/>
+                <circle id="gaugeRing" cx="54" cy="54" r="46" fill="none" stroke="var(--green)" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="289" stroke-dashoffset="289"/>
+              </svg>
+              <div class="gauge-num" id="gaugeNum">0</div>
+            </div>
+            <div class="gauge-legend">
+              <b>On track.</b><br>
+              Compliance clean, one client watch-listed, cash position healthy through month-end.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card calendar-card" style="margin-top:24px;">
+        <div class="cal-top">
+          <div><div class="eyebrow">Financial calendar</div><div class="cal-month">September 2026</div></div>
+          <div class="cal-nav"><button id="calPrev">‹</button><button id="calNext">›</button></div>
+        </div>
+        <div class="cal-legend">
+          <span><span class="dot working"></span> Tax deadline · Compliance</span>
+          <span><span class="dot overdue"></span> Collections escalation</span>
+          <span><span class="dot done"></span> Payment date · Cash-flow</span>
+        </div>
+        <div class="cal-grid" id="calGrid">
+          <div class="cal-dow">S</div><div class="cal-dow">M</div><div class="cal-dow">T</div><div class="cal-dow">W</div><div class="cal-dow">T</div><div class="cal-dow">F</div><div class="cal-dow">S</div>
+          <div class="cal-cell">30</div><div class="cal-cell">31</div>
+          <div class="cal-cell this-month">1</div><div class="cal-cell this-month">2</div><div class="cal-cell this-month">3</div><div class="cal-cell this-month">4</div><div class="cal-cell this-month">5</div>
+          <div class="cal-cell this-month">6</div><div class="cal-cell this-month">7</div><div class="cal-cell this-month">8</div><div class="cal-cell this-month">9</div><div class="cal-cell this-month">10</div><div class="cal-cell this-month">11</div><div class="cal-cell this-month">12</div>
+          <div class="cal-cell this-month">13</div><div class="cal-cell this-month">14</div><div class="cal-cell this-month">15</div><div class="cal-cell this-month">16</div><div class="cal-cell this-month today">17</div><div class="cal-cell this-month">18</div><div class="cal-cell this-month">19</div>
+          <div class="cal-cell this-month marked" data-tip="Bose Digital Studio — final notice sends"><span>20</span><span class="dot overdue"></span></div>
+          <div class="cal-cell this-month">21</div><div class="cal-cell this-month">22</div>
+          <div class="cal-cell this-month marked" data-tip="GSTR-3B filing deadline"><span>23</span><span class="dot working"></span></div>
+          <div class="cal-cell this-month">24</div><div class="cal-cell this-month">25</div><div class="cal-cell this-month">26</div>
+          <div class="cal-cell this-month">27</div><div class="cal-cell this-month">28</div><div class="cal-cell this-month">29</div>
+          <div class="cal-cell this-month marked" data-tip="Payroll — cash-flow confirms it's covered"><span>30</span><span class="dot done"></span></div>
+          <div class="cal-cell">1</div><div class="cal-cell">2</div><div class="cal-cell">3</div>
+        </div>
+        <div class="cal-upcoming" id="calUpcoming">
+          <div class="cal-up-row"><span class="dot overdue"></span><span class="cal-up-title">Final notice to Bose Digital Studio</span><span class="cal-up-agent">Collections</span><span class="cal-up-when">Sep 20</span></div>
+          <div class="cal-up-row"><span class="dot working"></span><span class="cal-up-title">GSTR-3B filing deadline</span><span class="cal-up-agent">Compliance</span><span class="cal-up-when">Sep 23</span></div>
+          <div class="cal-up-row"><span class="dot done"></span><span class="cal-up-title">Payroll — confirmed covered</span><span class="cal-up-agent">Cash-flow</span><span class="cal-up-when">Sep 30</span></div>
+          <div class="cal-up-row"><span class="dot working"></span><span class="cal-up-title">TDS payment due</span><span class="cal-up-agent">Compliance</span><span class="cal-up-when">Oct 7</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEDGER -->
+    <section class="view" data-view="ledger">
+      <h1 class="page-title">Ledger</h1>
+      <p class="page-sub">Every invoice, in one place.</p>
+      <div class="card">
+        <div class="ledger">
+          <table>
+            <thead><tr><th>Invoice</th><th>Client</th><th>Amount</th><th>Status</th><th>Age</th></tr></thead>
+            <tbody id="ledgerBody">
+              <tr><td>INV-0412</td><td>Sharma Textiles</td><td class="amount">₹42,000</td><td><span class="status-pill overdue">Overdue</span></td><td>12 days</td></tr>
+              <tr><td>INV-0417</td><td>Bose Digital Studio</td><td class="amount">₹28,500</td><td><span class="status-pill overdue">Overdue</span></td><td>6 days</td></tr>
+              <tr><td>INV-0421</td><td>Anjali Freelance Co.</td><td class="amount">₹15,000</td><td><span class="status-pill due">Due Fri</span></td><td>—</td></tr>
+              <tr><td>INV-0409</td><td>Ghosh &amp; Sons Traders</td><td class="amount">₹67,200</td><td><span class="status-pill paid">Paid</span></td><td>—</td></tr>
+              <tr><td>INV-0424</td><td>Ray Consulting</td><td class="amount">₹31,500</td><td><span class="status-pill due">Due 24 Sep</span></td><td>—</td></tr>
+              <tr><td>INV-0430</td><td>Nandi Hardware</td><td class="amount">₹9,800</td><td><span class="status-pill paid">Paid</span></td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLLECTIONS -->
+    <section class="view" data-view="collections">
+      <h1 class="page-title">Collections</h1>
+      <p class="page-sub">Every reminder is drafted, then checked, before it goes out.</p>
+      <div class="card">
+        <div class="card-head"><h2>Bose Digital Studio</h2><span class="muted">₹28,500 · 6 days overdue</span></div>
+        <div class="timeline" id="timeline">
+          <div class="stage">
+            <div class="stage-marker"><span class="stage-dot active"></span><span class="stage-line filled"></span></div>
+            <div class="stage-body">
+              <div class="stage-title">Friendly nudge sent</div>
+              <div class="stage-desc">"Hope you're doing well — just a gentle note that INV-0417 is now a few days past due."</div>
+              <span class="stage-tag">Sent Tue, 9:02 AM</span>
+            </div>
+          </div>
+          <div class="stage">
+            <div class="stage-marker"><span class="stage-dot active"></span><span class="stage-line filled"></span></div>
+            <div class="stage-body">
+              <div class="stage-title">Firmer follow-up — reviewed and approved</div>
+              <div class="stage-desc">Guardrail checked the draft for tone before it went out. No changes needed.</div>
+              <span class="stage-tag">Sent today, 8:41 AM</span>
+            </div>
+          </div>
+          <div class="stage">
+            <div class="stage-marker"><span class="stage-dot"></span></div>
+            <div class="stage-body">
+              <div class="stage-title">Final notice — scheduled</div>
+              <div class="stage-desc">Will send in 3 days if payment hasn't come through.</div>
+            </div>
+          </div>
+        </div>
+        <div class="nudge"><span>💬</span><span>Clients can send invoices straight from WhatsApp — forward a photo to <span class="num">+91 98XXX-XXXXX</span>.</span></div>
+      </div>
+    </section>
+
+    <!-- CREW -->
+    <section class="view" data-view="crew">
+      <h1 class="page-title">Crew</h1>
+      <p class="page-sub">Click an agent to see what it's thinking.</p>
+      <div class="crew-grid">
+        <div class="card crew-card working" data-trace="Reading INV-0431.jpg → detected vendor 'Ray Consulting', amount ₹31,500, date 24 Sep → confidence 96% → handing off to Compliance.">
+          <div class="crew-card-top"><div class="avatar">In<span class="ring"></span></div><div><div class="crew-card-name">Intake</div><div class="crew-card-role">Reads invoices &amp; receipts</div></div></div>
+          <div class="crew-card-status">Currently reading a new upload</div>
+          <div class="trace"><div class="trace-inner"></div></div>
+        </div>
+        <div class="card crew-card" data-trace="Checked HSN 9983 against GSTR-1 schema → no mismatch → invoice cleared for filing → draft return updated.">
+          <div class="crew-card-top"><div class="avatar">Co<span class="ring"></span></div><div><div class="crew-card-name">Compliance</div><div class="crew-card-role">GST classification &amp; filing</div></div></div>
+          <div class="crew-card-status">Idle — last ran 4 min ago</div>
+          <div class="trace"><div class="trace-inner"></div></div>
+        </div>
+        <div class="card crew-card working" data-trace="Drafting reminder #2 for Sharma Textiles → tone: firm, no threats → sending to Guardrail for review before dispatch.">
+          <div class="crew-card-top"><div class="avatar">Cl<span class="ring"></span></div><div><div class="crew-card-name">Collections</div><div class="crew-card-role">Drafts payment reminders</div></div></div>
+          <div class="crew-card-status">Drafting a reminder now</div>
+          <div class="trace"><div class="trace-inner"></div></div>
+        </div>
+        <div class="card crew-card" data-trace="Reviewed Collections' draft for Bose Digital Studio → flagged one line as too curt → suggested softer phrasing → re-sent for approval.">
+          <div class="crew-card-top"><div class="avatar">Gu<span class="ring"></span></div><div><div class="crew-card-name">Guardrail</div><div class="crew-card-role">Reviews tone before sending</div></div></div>
+          <div class="crew-card-status">Waiting on next draft</div>
+          <div class="trace"><div class="trace-inner"></div></div>
+        </div>
+        <div class="card crew-card" data-trace="Recalculated 30-day forecast after 3 new invoices → payroll on the 30th still covered → flagged Oct 12–14 as tightest window.">
+          <div class="crew-card-top"><div class="avatar">Ca<span class="ring"></span></div><div><div class="crew-card-name">Cash-flow</div><div class="crew-card-role">Forecasts your next 90 days</div></div></div>
+          <div class="crew-card-status">Idle — last ran 2 min ago</div>
+          <div class="trace"><div class="trace-inner"></div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="card-head"><h2>90-day forecast</h2></div>
+        <div class="bars" id="bars">
+          <div class="bar-col"><div class="bar" style="height:52%"></div><div class="bar-label">Wk 1</div></div>
+          <div class="bar-col"><div class="bar" style="height:64%"></div><div class="bar-label">Wk 2</div></div>
+          <div class="bar-col"><div class="bar" style="height:48%"></div><div class="bar-label">Wk 3</div></div>
+          <div class="bar-col"><div class="bar" style="height:70%"></div><div class="bar-label">Wk 4</div></div>
+          <div class="bar-col"><div class="bar" style="height:85%"></div><div class="bar-label">Wk 5</div></div>
+          <div class="bar-col"><div class="bar" style="height:78%"></div><div class="bar-label">Wk 6</div></div>
+          <div class="bar-col"><div class="bar" style="height:92%"></div><div class="bar-label">Wk 7</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIVACY POLICY -->
+    <section class="view" data-view="privacy">
+      <div class="card policy-card">
+        <h1 class="page-title">Privacy Policy</h1>
+        <div class="policy-updated">Last updated: 17 September 2026 · Applies to LedgerCrew AI (the "Service")</div>
+
+        <div class="policy-callout">
+          This policy is written in plain language wherever possible because you're trusting us with your business's financial data. It's a working draft for the product's current build — have it reviewed by counsel before treating it as final for a live launch.
+        </div>
+
+        <div class="policy-toc">
+          <div class="eyebrow">On this page</div>
+          <ol>
+            <li><a href="#p1">Who we are</a></li>
+            <li><a href="#p2">Information we collect</a></li>
+            <li><a href="#p3">How we use your information</a></li>
+            <li><a href="#p4">AI processing &amp; automated decisions</a></li>
+            <li><a href="#p5">Who we share data with</a></li>
+            <li><a href="#p6">The cross-business trust score</a></li>
+            <li><a href="#p7">Data retention</a></li>
+            <li><a href="#p8">Security</a></li>
+            <li><a href="#p9">Your rights</a></li>
+            <li><a href="#p10">Children's privacy</a></li>
+            <li><a href="#p11">Changes to this policy</a></li>
+            <li><a href="#p12">Contact &amp; grievance officer</a></li>
+          </ol>
+        </div>
+
+        <div class="policy-section" id="p1">
+          <h3><span class="num">01</span>Who we are</h3>
+          <p>LedgerCrew AI ("we," "us," "our") provides an AI-agent back-office — invoice reading, GST compliance drafting, payment collections, and cash-flow forecasting — for small businesses and freelancers in India. This policy explains what we collect through the Service, why, and what rights you have over it.</p>
+        </div>
+
+        <div class="policy-section" id="p2">
+          <h3><span class="num">02</span>Information we collect</h3>
+          <ul>
+            <li><strong>Account &amp; business information:</strong> your name, business name, GSTIN, email, phone number, and password.</li>
+            <li><strong>Financial &amp; transaction data:</strong> invoices and receipts you upload or forward (including data extracted from them — amounts, dates, vendor/client names, HSN codes), payment status, and client contact details used for collections.</li>
+            <li><strong>Communications data:</strong> messages sent via WhatsApp intake, and voice notes submitted for transcription (processed for that request; see Section 4).</li>
+            <li><strong>Usage &amp; device data:</strong> log data, IP address, browser type, and how you interact with the dashboard, collected automatically.</li>
+          </ul>
+        </div>
+
+        <div class="policy-section" id="p3">
+          <h3><span class="num">03</span>How we use your information</h3>
+          <ul>
+            <li>To operate the five crew agents — Intake, Compliance, Collections, Guardrail, and Cash-flow — on your behalf.</li>
+            <li>To prepare GST filing drafts and flag compliance issues.</li>
+            <li>To send payment reminders you've configured, at the tone and cadence you approve.</li>
+            <li>To forecast your cash position and surface it in your dashboard and calendar.</li>
+            <li>To maintain and improve the Service's reliability and security.</li>
+          </ul>
+          <p><strong>We do not use your invoice or client data to train third-party AI models</strong>, and we do not sell your data to advertisers.</p>
+        </div>
+
+        <div class="policy-section" id="p4">
+          <h3><span class="num">04</span>AI processing &amp; automated decisions</h3>
+          <p>Reading an invoice, drafting a GST return, or writing a reminder involves sending the relevant text or image to an AI model (ours or a sub-processor's — see Section 5) for processing. Guardrail review sits between every drafted reminder and its delivery, and you can set any agent's output to require your approval before it takes effect. You may request a human review of any automated decision that affects your account by contacting us (Section 12).</p>
+        </div>
+
+        <div class="policy-section" id="p5">
+          <h3><span class="num">05</span>Who we share data with</h3>
+          <p>We share data only with the sub-processors needed to run the Service, each under a data processing agreement:</p>
+          <ul>
+            <li><strong>Supabase</strong> — database, authentication, and file storage.</li>
+            <li><strong>Anthropic (Claude) and Groq</strong> — AI processing for document extraction, drafting, and voice transcription.</li>
+            <li><strong>Twilio</strong> — WhatsApp message delivery for invoice intake and reminders.</li>
+            <li><strong>Resend</strong> — transactional email delivery.</li>
+          </ul>
+          <p>We disclose data beyond this list only if required by law, or with your consent.</p>
+        </div>
+
+        <div class="policy-section" id="p6">
+          <h3><span class="num">06</span>The cross-business trust score</h3>
+          <p>To estimate a client's payment reliability, the Service may use aggregated, anonymized payment-timing patterns from across businesses using LedgerCrew AI. This never includes your invoice contents, amounts tied to your identity, or any personally identifying detail about you or your clients — only de-identified statistical patterns. You can opt your business's data out of contributing to this aggregate at any time from Settings without losing access to the feature itself.</p>
+        </div>
+
+        <div class="policy-section" id="p7">
+          <h3><span class="num">07</span>Data retention</h3>
+          <p>We retain your account and financial data for as long as your account is active, and for a reasonable period after closure to meet tax and accounting record-keeping obligations under Indian law. You can request earlier deletion under Section 9, subject to those legal retention requirements.</p>
+        </div>
+
+        <div class="policy-section" id="p8">
+          <h3><span class="num">08</span>Security</h3>
+          <p>Data is isolated per business using row-level access controls, encrypted in transit, and access to production data is limited to what's operationally necessary. No system is perfectly secure, and we'll notify affected users promptly in the event of a breach involving their data.</p>
+        </div>
+
+        <div class="policy-section" id="p9">
+          <h3><span class="num">09</span>Your rights</h3>
+          <p>Under India's Digital Personal Data Protection Act, 2023, and applicable data protection law generally, you have the right to:</p>
+          <ul>
+            <li>Access the personal data we hold about you.</li>
+            <li>Correct inaccurate or incomplete data.</li>
+            <li>Request erasure of your data, subject to legal retention obligations.</li>
+            <li>Withdraw consent for optional processing (such as the trust-score aggregate) at any time.</li>
+            <li>Lodge a grievance with our Grievance Officer (Section 12) or the relevant data protection authority.</li>
+          </ul>
+        </div>
+
+        <div class="policy-section" id="p10">
+          <h3><span class="num">10</span>Children's privacy</h3>
+          <p>The Service is intended for business owners and is not directed at anyone under 18. We don't knowingly collect data from minors.</p>
+        </div>
+
+        <div class="policy-section" id="p11">
+          <h3><span class="num">11</span>Changes to this policy</h3>
+          <p>We'll update the "Last updated" date above whenever this policy changes, and notify you by email for any change that materially affects how your data is used.</p>
+        </div>
+
+        <div class="policy-section" id="p12">
+          <h3><span class="num">12</span>Contact &amp; grievance officer</h3>
+          <div class="policy-contact">
+            <strong>LedgerCrew AI</strong><br>
+            Grievance Officer: [Name to be appointed]<br>
+            Email: privacy@ledgercrew.ai<br>
+            We aim to acknowledge privacy requests within 7 business days.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESOURCES -->
+    <section class="view resources-wrap" data-view="resources">
+      <div class="rupee-bg" id="rupeeBg"></div>
+      <div class="resources-content">
+        <h1 class="page-title">Resources</h1>
+        <p class="page-sub">Straight answers and the official government links to go with them.</p>
+
+        <div class="card qna-card" style="margin-bottom:28px;">
+          <div class="eyebrow">Ask a quick question</div>
+          <div class="qna-title">What do you need help with?</div>
+          <div class="qna-input-row">
+            <input type="text" id="qnaInput" placeholder="e.g. How do I file my GST return?">
+            <button id="qnaAsk" type="button">Ask</button>
+          </div>
+          <div class="qna-chips">
+            <span class="qna-chip" data-q="gst">How do I file GST?</span>
+            <span class="qna-chip" data-q="eway">How do I generate an e-way bill?</span>
+            <span class="qna-chip" data-q="itr">How do I file income tax?</span>
+            <span class="qna-chip" data-q="udyam">How do I register my business as an MSME?</span>
+          </div>
+          <div class="qna-answer" id="qnaAnswer">
+            <p id="qnaAnswerText"></p>
+            <a class="qna-go" id="qnaGoLink" href="#" target="_blank" rel="noopener">Go to the official portal →</a>
+          </div>
+        </div>
+
+        <div class="eyebrow" style="margin-bottom:10px;">Official links, recommended by the crew</div>
+        <div class="link-grid">
+          <a class="link-round-card" href="https://www.gst.gov.in/" target="_blank" rel="noopener">
+            <div class="link-icon">₹</div>
+            <h4>GST Portal</h4>
+            <p>Register for GST, file GSTR-1/3B returns, make payments, and track refunds — the main government portal for everything GST.</p>
+            <div class="link-url">gst.gov.in</div>
+          </a>
+          <a class="link-round-card" href="https://ewaybillgst.gov.in/" target="_blank" rel="noopener">
+            <div class="link-icon">🚚</div>
+            <h4>e-Way Bill Portal</h4>
+            <p>Generate the electronic waybill required whenever you move goods worth more than ₹50,000.</p>
+            <div class="link-url">ewaybillgst.gov.in</div>
+          </a>
+          <a class="link-round-card" href="https://www.incometax.gov.in/" target="_blank" rel="noopener">
+            <div class="link-icon">📄</div>
+            <h4>Income Tax e-Filing</h4>
+            <p>File your income tax return, check refund status, and view your Form 26AS tax credit statement.</p>
+            <div class="link-url">incometax.gov.in</div>
+          </a>
+          <a class="link-round-card" href="https://udyamregistration.gov.in/" target="_blank" rel="noopener">
+            <div class="link-icon">🏭</div>
+            <h4>Udyam Registration</h4>
+            <p>Register your business as an MSME, free and paperless — unlocks credit, subsidy, and delayed-payment protections.</p>
+            <div class="link-url">udyamregistration.gov.in</div>
+          </a>
+        </div>
+
+        <div class="card calc-proof">
+          <div class="card-head" style="padding:0 0 16px; border:none;">
+            <div><div class="eyebrow">Show your work</div><h2>How Compliance calculated this month's GST</h2></div>
+          </div>
+          <div class="calc-row"><span>Taxable value (Sharma Textiles, INV-0412)</span><span class="calc-val">₹42,000.00</span></div>
+          <div class="calc-row"><span>CGST (9%)</span><span class="calc-val">₹3,780.00</span></div>
+          <div class="calc-row"><span>SGST (9%)</span><span class="calc-val">₹3,780.00</span></div>
+          <div class="calc-row"><span>HSN code matched</span><span class="calc-val">9983</span></div>
+          <div class="calc-row total"><span>Total GST payable on this invoice</span><span class="calc-val">₹7,560.00</span></div>
+          <div class="calc-note">This is the exact breakdown Compliance used before adding this invoice to your GSTR-3B draft — nothing here is estimated or rounded silently. If a number ever looks wrong, this is the box to check first.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-head">
+      <div class="avatar-mini">Or</div>
+      <div class="chat-head-text">
+        <div class="eyebrow" style="margin:0;">Orchestrator</div>
+        <h4>Ask your crew</h4>
+      </div>
+      <button class="chat-close" id="chatClose" type="button">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody">
+      <div class="chat-msg bot">Hi — I can answer questions about your invoices, GST, or cash flow using what the crew already knows. What's on your mind?</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="Type a question…">
+      <button class="chat-mic" id="chatMic" type="button">🎙️</button>
+      <button class="chat-send" id="chatSend" type="button">↑</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease = 'power3.out';
+
+/* ambient blobs drift forever */
+if (!reduceMotion) {
+  gsap.to('.blob-a', { x: 80, y: 60, duration: 14, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+  gsap.to('.blob-b', { x: -70, y: -50, duration: 17, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+}
+
+/* tab indicator + view switching */
+const tabs = document.querySelectorAll('.tab');
+const indicator = document.getElementById('tabIndicator');
+function moveIndicator(tab) {
+  const r = tab.getBoundingClientRect(), pr = tab.parentElement.getBoundingClientRect();
+  gsap.to(indicator, { x: r.left - pr.left, width: r.width, duration: 0.45, ease });
+}
+window.addEventListener('load', () => moveIndicator(document.querySelector('.tab.active')));
+
+function animateView(view) {
+  const hero = view.querySelector('.hero');
+  const cards = view.querySelectorAll('.card');
+  const rows = view.querySelectorAll('tbody tr');
+  const stages = view.querySelectorAll('.stage');
+  const chips = view.querySelectorAll('.chip');
+  const kpis = view.querySelectorAll('.kpi-tile');
+  const activityBoxes = view.querySelectorAll('.activity-box');
+  const linkCards = view.querySelectorAll('.link-round-card');
+  if (linkCards.length) gsap.fromTo(linkCards, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, delay: 0.15, ease });
+  const bars = view.querySelectorAll('.bar');
+
+  gsap.fromTo(cards, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.08, ease });
+  if (chips.length) gsap.fromTo(chips, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, stagger: 0.08, delay: 0.3, ease: 'back.out(2)' });
+  if (kpis.length) gsap.fromTo(kpis, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, delay: 0.3, ease });
+  if (activityBoxes.length) gsap.fromTo(activityBoxes, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.08, delay: 0.3, ease });
+  if (rows.length) gsap.fromTo(rows, { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.05, delay: 0.15, ease });
+  if (stages.length) {
+    gsap.fromTo(stages, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, delay: 0.1, ease });
+    gsap.fromTo(view.querySelectorAll('.stage-line'), { scaleY: 0 }, { scaleY: 1, duration: 0.5, stagger: 0.15, delay: 0.25, transformOrigin: 'top', ease });
+  }
+  if (bars.length) gsap.fromTo(bars, { scaleY: 0 }, { scaleY: 1, duration: 0.7, stagger: 0.06, delay: 0.15, ease: 'elastic.out(1,0.7)' });
+
+  const calCells = view.querySelectorAll('.cal-cell');
+  if (calCells.length) gsap.fromTo(calCells, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.35, stagger: 0.012, delay: 0.2, ease });
+  const calUp = view.querySelectorAll('.cal-up-row');
+  if (calUp.length) gsap.fromTo(calUp, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.08, delay: 0.5, ease });
+  if (attnItems.length) gsap.fromTo(attnItems, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.1, delay: 0.25, ease });
+  const miniRows = view.querySelectorAll('.mini-row');
+  if (miniRows.length) gsap.fromTo(miniRows, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.08, delay: 0.25, ease });
+
+  if (view.dataset.view === 'dashboard') {
+    const counter = { val: 0 };
+    gsap.to(counter, { val: 184200, duration: 1.3, delay: 0.2, ease: 'power2.out',
+      onUpdate: () => document.getElementById('heroNum').textContent = Math.floor(counter.val).toLocaleString('en-IN') });
+    gsap.fromTo('#sparkline-path', { strokeDashoffset: 300 }, { strokeDashoffset: 0, duration: 1.4, delay: 0.3, ease: 'power2.inOut' });
+
+    const gaugeScore = 82;
+    const gaugeCounter = { val: 0 };
+    gsap.to('#gaugeRing', { strokeDashoffset: 289 - (289 * gaugeScore / 100), duration: 1.3, delay: 0.4, ease: 'power2.out' });
+    gsap.to(gaugeCounter, { val: gaugeScore, duration: 1.3, delay: 0.4, ease: 'power2.out',
+      onUpdate: () => document.getElementById('gaugeNum').textContent = Math.floor(gaugeCounter.val) });
+  }
+}
+
+function switchTo(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  const view = document.querySelector(`.view[data-view="${name}"]`);
+  view.classList.add('active');
+  moveIndicator(document.querySelector('.tab.active'));
+  animateView(view);
+}
+
+tabs.forEach(tab => tab.addEventListener('click', () => switchTo(tab.dataset.view)));
+
+/* crew cards expand with a trace */
+/* calendar nav — this demo only shows September, give a small physical "no" instead of doing nothing */
+['calPrev', 'calNext'].forEach(id => {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    btn.classList.remove('shake'); void btn.offsetWidth; btn.classList.add('shake');
+  });
+});
+
+/* ---- ask your crew chat panel ---- */
+const chatPanel = document.getElementById('chatPanel');
+const chatBody = document.getElementById('chatBody');
+const chatInput = document.getElementById('chatInput');
+
+function openChat() {
+  chatPanel.classList.add('open');
+  setTimeout(() => chatInput.focus(), 250);
+}
+function closeChat() { chatPanel.classList.remove('open'); }
+
+document.getElementById('askCrewOpen').addEventListener('click', openChat);
+document.getElementById('chatClose').addEventListener('click', closeChat);
+document.querySelectorAll('.chat-suggestion').forEach(chip => {
+  chip.addEventListener('click', () => { openChat(); sendChat(chip.dataset.q); });
+});
+
+function botReplyFor(text) {
+  const t = text.toLowerCase();
+  if (t.includes('owe') || t.includes('outstanding')) {
+    return "You're owed ₹1,84,200 right now across 12 open invoices — three are overdue, and Collections is already following up on two of them.";
+  }
+  if (t.includes('gst') || t.includes('tax') || t.includes('fil')) {
+    return "Your GSTR-3B filing is due September 23 — six days out. Compliance already has a draft ready for you to review.";
+  }
+  if (t.includes('payroll') || t.includes('cash') || t.includes('afford')) {
+    return "Yes — Cash-flow confirms payroll on the 30th is covered, even if Sharma Textiles pays late.";
+  }
+  return "I'm a demo crew for now — once connected to your real ledger, I'd answer that from your actual invoices, GST status, and cash position.";
+}
+
+function addChatMsg(text, who) {
+  const el = document.createElement('div');
+  el.className = 'chat-msg ' + who;
+  el.textContent = text;
+  chatBody.appendChild(el);
+  chatBody.scrollTop = chatBody.scrollHeight;
+  gsap.fromTo(el, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.35, ease });
+  return el;
+}
+
+function sendChat(text) {
+  const msg = (text || chatInput.value).trim();
+  if (!msg) return;
+  addChatMsg(msg, 'user');
+  chatInput.value = '';
+  const typing = document.createElement('div');
+  typing.className = 'chat-typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  chatBody.appendChild(typing);
+  chatBody.scrollTop = chatBody.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    addChatMsg(botReplyFor(msg), 'bot');
+  }, reduceMotion ? 100 : 1100);
+}
+
+document.getElementById('chatSend').addEventListener('click', () => sendChat());
+chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+document.getElementById('chatMic').addEventListener('click', () => {
+  chatInput.placeholder = 'Listening… (voice demo)';
+  setTimeout(() => { chatInput.placeholder = 'Type a question…'; }, 1600);
+});
+
+/* ---- resources page: rupee background ---- */
+const rupeeBg = document.getElementById('rupeeBg');
+if (rupeeBg) {
+  const positions = [
+    { top: '6%', left: '8%', size: '70px', delay: '0s' },
+    { top: '18%', left: '82%', size: '90px', delay: '1.5s' },
+    { top: '40%', left: '20%', size: '60px', delay: '0.7s' },
+    { top: '55%', left: '70%', size: '110px', delay: '2.2s' },
+    { top: '72%', left: '12%', size: '80px', delay: '1s' },
+    { top: '85%', left: '60%', size: '65px', delay: '2.8s' },
+    { top: '30%', left: '50%', size: '50px', delay: '0.3s' },
+    { top: '95%', left: '88%', size: '75px', delay: '1.8s' }
+  ];
+  positions.forEach(p => {
+    const el = document.createElement('span');
+    el.textContent = '₹';
+    el.style.top = p.top; el.style.left = p.left; el.style.fontSize = p.size; el.style.animationDelay = p.delay;
+    rupeeBg.appendChild(el);
+  });
+}
+
+/* ---- resources page: QnA ---- */
+const qnaData = {
+  gst: { text: "To file your GST return, head to the official GST Portal — you'll file GSTR-1 (outward supplies) and GSTR-3B (summary return) there using your GSTIN login.", url: "https://www.gst.gov.in/" },
+  eway: { text: "An e-way bill is required whenever you're moving goods worth over ₹50,000. Generate it directly on the official e-Way Bill Portal using your GSTIN.", url: "https://ewaybillgst.gov.in/" },
+  itr: { text: "Income tax returns are filed on the official Income Tax e-Filing portal using your PAN — it also shows your Form 26AS tax credit statement.", url: "https://www.incometax.gov.in/" },
+  udyam: { text: "Registering as an MSME is free and paperless on the Udyam Registration portal — you'll just need your Aadhaar and PAN details.", url: "https://udyamregistration.gov.in/" }
+};
+function qnaMatch(text) {
+  const t = text.toLowerCase();
+  if (t.includes('e-way') || t.includes('eway') || t.includes('transport') || t.includes('goods')) return 'eway';
+  if (t.includes('udyam') || t.includes('msme') || t.includes('register my business')) return 'udyam';
+  if (t.includes('income') || t.includes('itr') || t.includes('tax')) return 'itr';
+  return 'gst';
+}
+function showQnaAnswer(key) {
+  const data = qnaData[key] || qnaData.gst;
+  document.getElementById('qnaAnswerText').textContent = data.text;
+  document.getElementById('qnaGoLink').href = data.url;
+  const box = document.getElementById('qnaAnswer');
+  box.classList.add('show');
+  gsap.fromTo(box, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4, ease });
+}
+document.querySelectorAll('.qna-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.getElementById('qnaInput').value = chip.textContent;
+    showQnaAnswer(chip.dataset.q);
+  });
+});
+document.getElementById('qnaAsk').addEventListener('click', () => {
+  const val = document.getElementById('qnaInput').value;
+  if (!val.trim()) return;
+  showQnaAnswer(qnaMatch(val));
+});
+document.getElementById('qnaInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('qnaAsk').click(); });
+
+/* attention queue actions */
+document.querySelectorAll('.attn-item [data-resolve]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.attn-item');
+    gsap.to(item, { opacity: 0.45, duration: 0.35, ease, onComplete: () => item.classList.add('resolved') });
+  });
+});
+
+document.querySelectorAll('.crew-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const wasOpen = card.classList.contains('open');
+    document.querySelectorAll('.crew-card').forEach(c => c.classList.remove('open'));
+    if (!wasOpen) {
+      card.classList.add('open');
+      const inner = card.querySelector('.trace-inner');
+      const text = card.dataset.trace;
+      inner.textContent = '';
+      if (reduceMotion) { inner.textContent = text; return; }
+      let i = 0;
+      const type = () => { if (i <= text.length) { inner.textContent = text.slice(0, i); i += 2; setTimeout(type, 8); } };
+      type();
+    }
+  });
+});
+
+/* live feed keeps growing on the dashboard */
+const messages = [
+  ["Intake", "picked up a new receipt from Ray Consulting via WhatsApp.", "note", "🔵"],
+  ["Compliance", "flagged a missing GSTIN on INV-0430 — waiting on your review.", "flag", "⚠️"],
+  ["Collections", "sent the scheduled follow-up to Bose Digital Studio.", "good", "✅"],
+  ["Guardrail", "held a draft back for edits — line 2 read as too aggressive.", "flag", "⚠️"],
+  ["Cash-flow", "recalculated: payroll on the 30th is covered.", "good", "✅"]
+];
+function addEntry() {
+  const feed = document.getElementById('feed');
+  if (!feed) return;
+  const [who, text, type, icon] = messages[Math.floor(Math.random() * messages.length)];
+  const now = new Date();
+  const time = (now.getHours() % 12 || 12) + ':' + String(now.getMinutes()).padStart(2, '0');
+  const el = document.createElement('div');
+  el.className = 'activity-box ' + type;
+  el.innerHTML = `<span class="icon">${icon}</span><span class="txt"><span class="who">${who}</span> ${text}</span><span class="activity-time">${time}</span>`;
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+  gsap.fromTo(el, { opacity: 0, x: 14 }, { opacity: 1, x: 0, duration: 0.5, ease: 'back.out(1.7)' });
+  while (feed.children.length > 10) feed.removeChild(feed.firstChild);
+}
+setInterval(addEntry, 5500);
+
+/* ---- royal WebGL backdrop on login ---- */
+let vantaEffect = null;
+if (!reduceMotion && window.VANTA) {
+  try {
+    vantaEffect = VANTA.HALO({
+      el: '#vantaBg',
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200,
+      minWidth: 200,
+      baseColor: 0xdf9e3d,
+      backgroundColor: 0x0c1210,
+      amplitudeFactor: 2.0,
+      size: 1.6,
+      xOffset: 0.1
+    });
+  } catch (e) { document.getElementById('loginScreen').classList.add('no-webgl'); }
+} else {
+  document.getElementById('loginScreen').classList.add('no-webgl');
+}
+
+/* ---- login screen ---- */
+const brandEl = document.getElementById('loginBrand');
+const brandMain = "LedgerCrew";
+const brandTag = " AI";
+let bi = 0;
+function typeBrandMain() {
+  if (bi <= brandMain.length) {
+    brandEl.innerHTML = brandMain.slice(0, bi) + '<span class="cursor"></span>';
+    bi++;
+    setTimeout(typeBrandMain, 60);
+  } else {
+    bi = 0;
+    setTimeout(typeBrandTag, 150);
+  }
+}
+function typeBrandTag() {
+  if (bi <= brandTag.length) {
+    brandEl.innerHTML = brandMain + '<span class="amber">' + brandTag.slice(0, bi) + '</span><span class="cursor"></span>';
+    bi++;
+    setTimeout(typeBrandTag, 60);
+  } else {
+    startWave();
+  }
+}
+if (reduceMotion) {
+  brandEl.innerHTML = brandMain + '<span class="amber">' + brandTag + '</span>';
+  startWave();
+} else {
+  setTimeout(typeBrandMain, 300);
+}
+
+const loginWaveText = "Welcome back, boss.";
+const loginWaveEl = document.getElementById('loginWave');
+function startWave() {
+  loginWaveText.split('').forEach((ch, i) => {
+    const s = document.createElement('span');
+    s.textContent = ch === ' ' ? '\u00A0' : ch;
+    s.style.animationDelay = (i * 0.045) + 's';
+    loginWaveEl.appendChild(s);
+  });
+}
+
+const loginSubEl = document.getElementById('loginSub');
+const cursorEl = loginSubEl.querySelector('.cursor');
+const subText = "Your crew kept working while you were away.";
+let subI = 0;
+function typeSub() {
+  if (subI <= subText.length) {
+    loginSubEl.textContent = subText.slice(0, subI);
+    loginSubEl.appendChild(cursorEl);
+    subI++;
+    setTimeout(typeSub, 32);
+  }
+}
+setTimeout(typeSub, 500);
+
+/* card tilt + spotlight follow the mouse */
+const loginCard = document.getElementById('loginCard');
+if (!reduceMotion) {
+  const rotX = gsap.quickTo(loginCard, 'rotationX', { duration: 0.5, ease: 'power3.out' });
+  const rotY = gsap.quickTo(loginCard, 'rotationY', { duration: 0.5, ease: 'power3.out' });
+  loginCard.addEventListener('mousemove', (e) => {
+    const r = loginCard.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    rotY((px - 0.5) * 14);
+    rotX((0.5 - py) * 14);
+    loginCard.style.setProperty('--mx', (px * 100) + '%');
+    loginCard.style.setProperty('--my', (py * 100) + '%');
+  });
+  loginCard.addEventListener('mouseleave', () => { rotX(0); rotY(0); });
+}
+
+/* enter the app */
+function enterApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainApp').style.pointerEvents = 'auto';
+  gsap.fromTo('#mainApp', { opacity: 0, scale: 0.98 }, { opacity: 1, scale: 1, duration: 0.7, ease: 'power3.out' });
+  animateView(document.querySelector('.view.active'));
+  if (vantaEffect) { setTimeout(() => { vantaEffect.destroy(); vantaEffect = null; }, 650); }
+}
+document.getElementById('loginBtn').addEventListener('click', enterApp);
+document.getElementById('waBtn').addEventListener('click', enterApp);
+document.getElementById('googleBtn').addEventListener('click', enterApp);
+
+/* app hidden until login */
+gsap.set('#mainApp', { opacity: 0 });
+document.getElementById('mainApp').style.pointerEvents = 'none';
+</script>
+</body>
+</html>
