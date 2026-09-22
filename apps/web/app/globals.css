@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #F3EEDD;
+  --surface: #FFFDF6;
+  --surface-2: #EAE2C9;
+  --ink: #1D1B14;
+  --ink-soft: #6B6555;
+  --line: #DCD2AE;
+  --amber: #B8791E;
+  --amber-soft: #F1E0BE;
+  --green: #2F6B57;
+  --green-soft: #DCEAE3;
+  --red: #A63A2C;
+  --red-soft: #F3DED9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1613;
+    --surface: #182420;
+    --surface-2: #1F2E28;
+    --ink: #ECE6D3;
+    --ink-soft: #A7A08D;
+    --line: #2A3733;
+    --amber: #E3A63D;
+    --amber-soft: #3A2E17;
+    --green: #4FA189;
+    --green-soft: #17332B;
+    --red: #E06A54;
+    --red-soft: #3A1E19;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0F1613;
+  --surface: #182420;
+  --surface-2: #1F2E28;
+  --ink: #ECE6D3;
+  --ink-soft: #A7A08D;
+  --line: #2A3733;
+  --amber: #E3A63D;
+  --amber-soft: #3A2E17;
+  --green: #4FA189;
+  --green-soft: #17332B;
+  --red: #E06A54;
+  --red-soft: #3A1E19;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), -apple-system, sans-serif;
+}
