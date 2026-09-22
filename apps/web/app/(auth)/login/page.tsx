@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import gsap from "gsap";
 
 function GoogleIcon() {
   return (
@@ -27,33 +28,192 @@ function GoogleIcon() {
 }
 
 const CREW_INITIALS = ["In", "Co", "Cl", "Gu", "Ca"];
+const WAVE_TEXT = "Welcome back, boss.";
+const SUB_TEXT = "Your crew kept working while you were away.";
+const FLOAT_POSITIONS = [
+  { top: "14%", left: "12%", delay: "0s", initial: "In" },
+  { top: "22%", left: "82%", delay: "1.2s", initial: "Co" },
+  { top: "70%", left: "16%", delay: "2.1s", initial: "Cl" },
+  { top: "68%", left: "84%", delay: "0.6s", initial: "Gu" },
+  { top: "48%", left: "6%", delay: "1.7s", initial: "Ca" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // TODO(Step: backend/auth): wire this to real Supabase auth.
-  // For now every sign-in path just navigates through so the rest of the
-  // app is reachable and testable while the real backend doesn't exist yet.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const vantaRef = useRef<HTMLDivElement>(null);
+  const waveRef = useRef<HTMLHeadingElement>(null);
+  const subRef = useRef<HTMLParagraphElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+
   function handleSignIn(e?: FormEvent) {
     e?.preventDefault();
+    // TODO(Step: backend/auth): wire this to real Supabase auth.
     router.push("/dashboard");
   }
 
-  return (
-    <main className="min-h-screen flex items-center justify-center bg-bg px-6 py-12">
-      <div className="w-full max-w-[400px] rounded-[22px] border border-line bg-surface p-10 shadow-sm">
-        <div className="mb-6 text-[13.5px] font-medium uppercase tracking-wider text-ink-soft">
-          LedgerCrew<span className="text-amber"> AI</span>
-        </div>
+  useEffect(() => {
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
 
-        <h1 className="mb-1.5 font-serif text-[27px] font-medium tracking-tight">
-          Welcome back, boss.
-        </h1>
-        <p className="mb-7 text-[13.5px] text-ink-soft">
-          Your crew kept working while you were away.
-        </p>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let vantaEffect: any = null;
+    let cancelled = false;
+
+    // ---- typed brand name, then the wave headline, then the typewriter subtitle ----
+    function startWave() {
+      if (!waveRef.current) return;
+      waveRef.current.innerHTML = "";
+      WAVE_TEXT.split("").forEach((ch, i) => {
+        const span = document.createElement("span");
+        span.textContent = ch === " " ? "\u00A0" : ch;
+        span.style.display = "inline-block";
+        span.style.animation = reduceMotion ? "none" : "wave 2.6s ease-in-out infinite";
+        span.style.animationDelay = `${i * 0.045}s`;
+        waveRef.current!.appendChild(span);
+      });
+    }
+
+    function typeSub() {
+      if (!subRef.current) return;
+      if (reduceMotion) {
+        subRef.current.textContent = SUB_TEXT;
+        return;
+      }
+      let i = 0;
+      const tick = () => {
+        if (cancelled || !subRef.current) return;
+        subRef.current.textContent = SUB_TEXT.slice(0, i);
+        i++;
+        if (i <= SUB_TEXT.length) setTimeout(tick, 32);
+      };
+      setTimeout(tick, 150);
+    }
+
+    function typeBrand() {
+      if (!brandRef.current) return;
+      const main = "LedgerCrew";
+      const tag = " AI";
+      if (reduceMotion) {
+        brandRef.current.innerHTML = `${main}<span class="text-amber">${tag}</span>`;
+        startWave();
+        typeSub();
+        return;
+      }
+      let i = 0;
+      const typeMain = () => {
+        if (cancelled || !brandRef.current) return;
+        brandRef.current.textContent = main.slice(0, i);
+        i++;
+        if (i <= main.length) {
+          setTimeout(typeMain, 60);
+        } else {
+          i = 0;
+          setTimeout(typeTag, 150);
+        }
+      };
+      const typeTag = () => {
+        if (cancelled || !brandRef.current) return;
+        brandRef.current.innerHTML = `${main}<span class="text-amber">${tag.slice(0, i)}</span>`;
+        i++;
+        if (i <= tag.length) {
+          setTimeout(typeTag, 60);
+        } else {
+          startWave();
+          typeSub();
+        }
+      };
+      setTimeout(typeMain, 300);
+    }
+    typeBrand();
+
+    // ---- card tilt + spotlight follow the mouse ----
+    let rotX: ((v: number) => void) | null = null;
+    let rotY: ((v: number) => void) | null = null;
+    function handleMouseMove(e: MouseEvent) {
+      const card = cardRef.current;
+      if (!card || !rotX || !rotY) return;
+      const r = card.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width;
+      const py = (e.clientY - r.top) / r.height;
+      rotY((px - 0.5) * 14);
+      rotX((0.5 - py) * 14);
+      card.style.setProperty("--mx", `${px * 100}%`);
+      card.style.setProperty("--my", `${py * 100}%`);
+    }
+    function handleMouseLeave() {
+      rotX?.(0);
+      rotY?.(0);
+    }
+
+    if (!reduceMotion && cardRef.current) {
+      cardRef.current.style.transformStyle = "preserve-3d";
+      rotX = gsap.quickTo(cardRef.current, "rotationX", { duration: 0.5, ease: "power3.out" });
+      rotY = gsap.quickTo(cardRef.current, "rotationY", { duration: 0.5, ease: "power3.out" });
+      cardRef.current.addEventListener("mousemove", handleMouseMove);
+      cardRef.current.addEventListener("mouseleave", handleMouseLeave);
+    }
+
+    // ---- Vanta HALO glowing background ----
+    async function initVanta() {
+      if (reduceMotion || !vantaRef.current) return;
+      const THREE = await import("three");
+      const HALO = (await import("vanta/dist/vanta.halo.min")).default;
+      if (cancelled) return;
+      vantaEffect = HALO({
+        el: vantaRef.current,
+        THREE,
+        mouseControls: true,
+        touchControls: true,
+        gyroControls: false,
+        minHeight: 200,
+        minWidth: 200,
+        baseColor: 0xdf9e3d,
+        backgroundColor: 0x0c1210,
+        amplitudeFactor: 2.0,
+        size: 1.6,
+        xOffset: 0.1,
+      });
+    }
+    initVanta();
+
+    return () => {
+      cancelled = true;
+      cardRef.current?.removeEventListener("mousemove", handleMouseMove);
+      cardRef.current?.removeEventListener("mouseleave", handleMouseLeave);
+      if (vantaEffect) vantaEffect.destroy();
+    };
+  }, []);
+
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bg px-6 py-12">
+      <div ref={vantaRef} className="pointer-events-none absolute inset-0 z-0" />
+
+      {FLOAT_POSITIONS.map((f) => (
+        <div
+          key={f.initial}
+          className="login-float absolute z-[1] flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-surface font-serif text-sm text-ink-soft shadow-sm"
+          style={{ top: f.top, left: f.left, animation: `floatyGlow 6s ease-in-out infinite`, animationDelay: f.delay }}
+        >
+          {f.initial}
+        </div>
+      ))}
+
+      <div
+        ref={cardRef}
+        className="login-card relative z-[2] w-full max-w-[400px] overflow-hidden rounded-[22px] border border-line bg-surface p-10 shadow-sm"
+      >
+        <div
+          ref={brandRef}
+          className="mb-6 min-h-[17px] text-[13.5px] font-medium uppercase tracking-wider text-ink-soft"
+        />
+
+        <h1 ref={waveRef} className="login-wave mb-1.5 font-serif text-[27px] font-medium tracking-tight" />
+        <p ref={subRef} className="mb-7 min-h-[20px] text-[13.5px] text-ink-soft" />
 
         <button
           type="button"

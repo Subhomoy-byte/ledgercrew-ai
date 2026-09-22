@@ -58,3 +58,47 @@ body {
   color: var(--ink);
   font-family: var(--font-plex-sans), -apple-system, sans-serif;
 }
+
+/* ---- login page animation keyframes (Step 1d) ---- */
+@keyframes wave {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-7px); }
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes floatyGlow {
+  0%, 100% { transform: translateY(0); box-shadow: 0 1px 2px rgba(20,18,10,0.06), 0 8px 24px -12px rgba(20,18,10,0.18); }
+  50% {
+    transform: translateY(-14px);
+    box-shadow: 0 1px 2px rgba(20,18,10,0.06), 0 8px 24px -12px rgba(20,18,10,0.18),
+      0 0 20px 4px color-mix(in srgb, var(--amber) 40%, transparent);
+  }
+}
+
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    220px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--amber) 16%, transparent),
+    transparent 70%
+  );
+  transition: opacity 0.3s ease;
+}
+.login-card:hover::before {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-wave span,
+  .login-float {
+    animation: none !important;
+  }
+}
