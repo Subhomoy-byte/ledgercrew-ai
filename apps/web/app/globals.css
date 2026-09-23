@@ -107,3 +107,13 @@ body {
   0% { transform: scale(0.6); opacity: 0.9; }
   100% { transform: scale(2.2); opacity: 0; }
 }
+
+@keyframes activityBlink {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 22%, transparent); }
+}
+
+@keyframes liveBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}

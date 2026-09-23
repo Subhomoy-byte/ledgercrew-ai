@@ -60,6 +60,42 @@ const ATTN_ITEMS: AttnItem[] = [
   },
 ];
 
+type ActivityType = "flag" | "note" | "good";
+type ActivityEntry = {
+  who: string;
+  text: string;
+  type: ActivityType;
+  icon: string;
+  time: string;
+};
+
+const INITIAL_ACTIVITY: ActivityEntry[] = [
+  { who: "Intake", text: "read a forwarded photo from Anjali Freelance Co. — extracted ₹15,000.", type: "note", icon: "🔵", time: "9:14" },
+  { who: "Collections", text: "drafted a reminder for Sharma Textiles (12 days overdue).", type: "note", icon: "🔵", time: "9:15" },
+  { who: "Guardrail", text: "reviewed the draft — tone is firm but fair. Approved.", type: "good", icon: "✅", time: "9:15" },
+  { who: "Compliance", text: "flagged a missing GSTIN on INV-0430 — needs your review.", type: "flag", icon: "⚠️", time: "9:16" },
+];
+
+const ACTIVITY_POOL: Omit<ActivityEntry, "time">[] = [
+  { who: "Intake", text: "picked up a new receipt from Ray Consulting via WhatsApp.", type: "note", icon: "🔵" },
+  { who: "Compliance", text: "flagged a missing GSTIN on INV-0430 — waiting on your review.", type: "flag", icon: "⚠️" },
+  { who: "Collections", text: "sent the scheduled follow-up to Bose Digital Studio.", type: "good", icon: "✅" },
+  { who: "Guardrail", text: "held a draft back for edits — line 2 read as too aggressive.", type: "flag", icon: "⚠️" },
+  { who: "Cash-flow", text: "recalculated: payroll on the 30th is covered.", type: "good", icon: "✅" },
+];
+
+const activityBoxClass: Record<ActivityType, string> = {
+  flag: "border-red bg-red-soft animate-[activityBlink_1.4s_ease-in-out_infinite]",
+  note: "border-line bg-surface-2",
+  good: "border-green/45 bg-green-soft",
+};
+
+const LEDGER_SNAPSHOT = [
+  { client: "Sharma Textiles", amount: "₹42,000", status: "12d overdue", tone: "overdue" as const },
+  { client: "Bose Digital Studio", amount: "₹28,500", status: "6d overdue", tone: "overdue" as const },
+  { client: "Anjali Freelance Co.", amount: "₹15,000", status: "Due Fri", tone: "due" as const },
+];
+
 type ChatMsg = { who: "user" | "bot"; text: string };
 
 const QUICK_QUESTIONS = [
@@ -91,6 +127,7 @@ export default function DashboardPage() {
   const chatInputRef = useRef<HTMLInputElement>(null);
 
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
+  const [activity, setActivity] = useState<ActivityEntry[]>(INITIAL_ACTIVITY);
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
@@ -168,6 +205,16 @@ export default function DashboardPage() {
         }
       );
     }
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const pick = ACTIVITY_POOL[Math.floor(Math.random() * ACTIVITY_POOL.length)];
+      const now = new Date();
+      const time = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`;
+      setActivity((prev) => [...prev.slice(-9), { ...pick, time }]);
+    }, 5500);
+    return () => clearInterval(interval);
   }, []);
 
   function resolveAttn(id: string) {
@@ -346,6 +393,72 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Latest activity — promoted, full width */}
+      <div className="mb-6 rounded-[16px] border border-line bg-surface shadow-sm">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-[22px] py-[18px]">
+          <div>
+            <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+              What the crew is doing right now
+            </div>
+            <h2 className="font-serif text-[17px] font-medium">Latest activity</h2>
+          </div>
+          <span className="flex shrink-0 items-center gap-2 rounded-full bg-ink px-[18px] py-[9px] text-[12.5px] font-semibold text-bg">
+            <span className="h-2 w-2 animate-[liveBlink_1.4s_ease-in-out_infinite] rounded-full bg-[#ff5c5c]" />
+            Live
+          </span>
+        </div>
+        <div className="flex max-h-[460px] flex-col gap-2.5 overflow-y-auto px-[22px] pb-2 pt-[18px]">
+          {activity.map((a, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-2.5 rounded-[14px] border px-4 py-[13px] text-[13.5px] ${activityBoxClass[a.type]}`}
+            >
+              <span className="shrink-0 text-[15px]">{a.icon}</span>
+              <span className="flex-1">
+                <span className="font-semibold">{a.who}</span> {a.text}
+              </span>
+              <span className="shrink-0 font-mono text-[11px] text-ink-soft">{a.time}</span>
+            </div>
+          ))}
+        </div>
+        <div className="px-[22px] pb-5 pt-1">
+          <button className="w-full rounded-full border border-line bg-surface py-[10px] text-[13.5px] font-medium text-ink">
+            View all activity
+          </button>
+        </div>
+      </div>
+
+      {/* Top of your ledger */}
+      <div className="mb-6 rounded-[16px] border border-line bg-surface shadow-sm">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-[22px] py-[18px]">
+          <div>
+            <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+              Ledger snapshot
+            </div>
+            <h2 className="font-serif text-[17px] font-medium">Top of your ledger</h2>
+          </div>
+          <span className="mt-[3px] text-[12.5px] text-ink-soft">3 most urgent</span>
+        </div>
+        <div>
+          {LEDGER_SNAPSHOT.map((row) => (
+            <div
+              key={row.client}
+              className="flex items-center gap-3 border-b border-line px-[22px] py-3 text-[13.5px] last:border-b-0"
+            >
+              <span className="flex-1">{row.client}</span>
+              <span className="font-mono">{row.amount}</span>
+              <span
+                className={`rounded-full px-[10px] py-1 text-[11.5px] ${
+                  row.tone === "overdue" ? "bg-red-soft text-red" : "bg-amber-soft text-amber"
+                }`}
+              >
+                {row.status}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
