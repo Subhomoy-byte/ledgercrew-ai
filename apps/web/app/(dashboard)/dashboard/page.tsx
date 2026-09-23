@@ -98,6 +98,42 @@ const LEDGER_SNAPSHOT = [
 
 type ChatMsg = { who: "user" | "bot"; text: string };
 
+type CalCell = {
+  day: number;
+  inMonth: boolean;
+  isToday?: boolean;
+  marked?: { type: "flag" | "note" | "good"; tip: string };
+};
+
+const CAL_DOT_CLASS: Record<"flag" | "note" | "good", string> = {
+  flag: "bg-red",
+  note: "bg-amber",
+  good: "bg-green",
+};
+
+const SEPTEMBER_GRID: CalCell[] = [
+  { day: 30, inMonth: false }, { day: 31, inMonth: false },
+  ...[1, 2, 3, 4, 5].map((d) => ({ day: d, inMonth: true })),
+  ...[6, 7, 8, 9, 10, 11, 12].map((d) => ({ day: d, inMonth: true })),
+  { day: 13, inMonth: true }, { day: 14, inMonth: true }, { day: 15, inMonth: true },
+  { day: 16, inMonth: true }, { day: 17, inMonth: true, isToday: true },
+  { day: 18, inMonth: true }, { day: 19, inMonth: true },
+  { day: 20, inMonth: true, marked: { type: "flag", tip: "Bose Digital Studio — final notice sends" } },
+  { day: 21, inMonth: true }, { day: 22, inMonth: true },
+  { day: 23, inMonth: true, marked: { type: "note", tip: "GSTR-3B filing deadline" } },
+  { day: 24, inMonth: true }, { day: 25, inMonth: true }, { day: 26, inMonth: true },
+  { day: 27, inMonth: true }, { day: 28, inMonth: true }, { day: 29, inMonth: true },
+  { day: 30, inMonth: true, marked: { type: "good", tip: "Payroll — cash-flow confirms it's covered" } },
+  { day: 1, inMonth: false }, { day: 2, inMonth: false }, { day: 3, inMonth: false },
+];
+
+const UPCOMING = [
+  { dot: "flag" as const, title: "Final notice to Bose Digital Studio", agent: "Collections", when: "Sep 20" },
+  { dot: "note" as const, title: "GSTR-3B filing deadline", agent: "Compliance", when: "Sep 23" },
+  { dot: "good" as const, title: "Payroll — confirmed covered", agent: "Cash-flow", when: "Sep 30" },
+  { dot: "note" as const, title: "TDS payment due", agent: "Compliance", when: "Oct 7" },
+];
+
 const QUICK_QUESTIONS = [
   "How much am I owed right now?",
   "When is my GST filing due?",
@@ -125,6 +161,9 @@ export default function DashboardPage() {
   const attnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
+  const gaugeRingRef = useRef<SVGCircleElement>(null);
+  const gaugeNumRef = useRef<HTMLDivElement>(null);
+  const [calShake, setCalShake] = useState(false);
 
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
   const [activity, setActivity] = useState<ActivityEntry[]>(INITIAL_ACTIVITY);
@@ -205,6 +244,32 @@ export default function DashboardPage() {
         }
       );
     }
+
+    // Business health gauge
+    const GAUGE_SCORE = 82;
+    const CIRCUMFERENCE = 289;
+    if (gaugeRingRef.current) {
+      gsap.to(gaugeRingRef.current, {
+        strokeDashoffset: CIRCUMFERENCE - (CIRCUMFERENCE * GAUGE_SCORE) / 100,
+        duration: reduceMotion ? 0 : 1.3,
+        delay: reduceMotion ? 0 : 0.4,
+        ease: "power2.out",
+      });
+    }
+    if (gaugeNumRef.current) {
+      const counter = { val: 0 };
+      gsap.to(counter, {
+        val: GAUGE_SCORE,
+        duration: reduceMotion ? 0 : 1.3,
+        delay: reduceMotion ? 0 : 0.4,
+        ease: "power2.out",
+        onUpdate: () => {
+          if (gaugeNumRef.current) {
+            gaugeNumRef.current.textContent = String(Math.floor(counter.val));
+          }
+        },
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -219,6 +284,12 @@ export default function DashboardPage() {
 
   function resolveAttn(id: string) {
     setResolved((prev) => ({ ...prev, [id]: true }));
+  }
+
+  function triggerCalShake() {
+    setCalShake(false);
+    requestAnimationFrame(() => setCalShake(true));
+    setTimeout(() => setCalShake(false), 350);
   }
 
   function openChat() {
@@ -457,6 +528,153 @@ export default function DashboardPage() {
               >
                 {row.status}
               </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Weekly brief + Business health */}
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-[16px] border border-line bg-surface shadow-sm">
+          <div className="border-b border-line px-[22px] py-[18px]">
+            <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+              Weekly summary
+            </div>
+            <h2 className="font-serif text-[17px] font-medium">This week&apos;s brief</h2>
+          </div>
+          <div className="px-[22px] py-[22px] text-[13.5px] leading-relaxed text-ink-soft">
+            Three clients are past due. GST filing window closes in 6 days —
+            Compliance has a draft ready. Cash position stays healthy through
+            October even if Sharma Textiles pays late.
+          </div>
+        </div>
+
+        <div className="rounded-[16px] border border-line bg-surface shadow-sm">
+          <div className="border-b border-line px-[22px] py-[18px]">
+            <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+              Health score
+            </div>
+            <h2 className="font-serif text-[17px] font-medium">Business health</h2>
+          </div>
+          <div className="flex items-center gap-5 px-[22px] py-[18px]">
+            <div className="relative h-[108px] w-[108px] shrink-0">
+              <svg width="108" height="108" viewBox="0 0 108 108" className="-rotate-90">
+                <circle cx="54" cy="54" r="46" fill="none" stroke="var(--surface-2)" strokeWidth="10" />
+                <circle
+                  ref={gaugeRingRef}
+                  cx="54"
+                  cy="54"
+                  r="46"
+                  fill="none"
+                  stroke="var(--green)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={289}
+                  strokeDashoffset={289}
+                />
+              </svg>
+              <div
+                ref={gaugeNumRef}
+                className="absolute inset-0 flex items-center justify-center font-serif text-2xl"
+              >
+                0
+              </div>
+            </div>
+            <div className="text-[12.5px] leading-relaxed text-ink-soft">
+              <b className="text-ink">On track.</b>
+              <br />
+              Compliance clean, one client watch-listed, cash position healthy
+              through month-end.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial calendar */}
+      <div
+        className="relative overflow-hidden rounded-[16px] border shadow-sm"
+        style={{
+          background: "color-mix(in srgb, var(--surface) 55%, transparent)",
+          backdropFilter: "blur(18px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(18px) saturate(1.3)",
+          borderColor: "color-mix(in srgb, var(--line) 65%, transparent)",
+        }}
+      >
+        <div className="flex items-center justify-between px-[22px] pb-0.5 pt-[18px]">
+          <div>
+            <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+              Financial calendar
+            </div>
+            <div className="font-serif text-base font-medium">September 2026</div>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={triggerCalShake}
+              className={`h-[26px] w-[26px] rounded-lg border border-line text-ink transition hover:border-amber ${
+                calShake ? "animate-[calShake_0.35s_ease]" : ""
+              }`}
+            >
+              ‹
+            </button>
+            <button
+              onClick={triggerCalShake}
+              className={`h-[26px] w-[26px] rounded-lg border border-line text-ink transition hover:border-amber ${
+                calShake ? "animate-[calShake_0.35s_ease]" : ""
+              }`}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 px-[22px] py-[14px] text-[11.5px] text-ink-soft">
+          <span className="flex items-center gap-1.5">
+            <span className="h-[7px] w-[7px] rounded-full bg-amber" /> Tax deadline · Compliance
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-[7px] w-[7px] rounded-full bg-red" /> Collections escalation
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-[7px] w-[7px] rounded-full bg-green" /> Payment date · Cash-flow
+          </span>
+        </div>
+
+        <div className="grid grid-cols-7 gap-[5px] px-[18px] pb-[6px]">
+          {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+            <div key={i} className="pb-1 text-center text-[10px] text-ink-soft">
+              {d}
+            </div>
+          ))}
+          {SEPTEMBER_GRID.map((cell, i) => (
+            <div
+              key={i}
+              data-tip={cell.marked?.tip}
+              className={`flex aspect-square flex-col items-center justify-center gap-[3px] rounded-[10px] text-xs ${
+                cell.inMonth ? "text-ink" : "text-ink-soft/55"
+              } ${cell.isToday ? "border-[1.5px] border-amber font-semibold" : ""} ${
+                cell.marked ? "cal-cell-marked" : ""
+              }`}
+            >
+              <span>{cell.day}</span>
+              {cell.marked && (
+                <span className={`h-[5px] w-[5px] rounded-full ${CAL_DOT_CLASS[cell.marked.type]}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="flex flex-col gap-3 px-[22px] pb-5 pt-3.5"
+          style={{ borderTop: "1px solid color-mix(in srgb, var(--line) 65%, transparent)" }}
+        >
+          {UPCOMING.map((u) => (
+            <div key={u.title} className="flex items-center gap-3 text-[13px]">
+              <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${CAL_DOT_CLASS[u.dot]}`} />
+              <span className="flex-1">{u.title}</span>
+              <span className="rounded-full bg-surface-2/75 px-[9px] py-[3px] text-[10.5px] text-ink-soft">
+                {u.agent}
+              </span>
+              <span className="font-mono text-[11.5px] text-ink-soft">{u.when}</span>
             </div>
           ))}
         </div>

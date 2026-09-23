@@ -117,3 +117,43 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.2; }
 }
+
+/* financial calendar: hover tooltip on marked days */
+.cal-cell-marked {
+  position: relative;
+  cursor: pointer;
+}
+.cal-cell-marked:hover {
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+}
+.cal-cell-marked::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 118%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  box-shadow: 0 8px 24px -12px rgba(20, 18, 10, 0.3);
+  z-index: 5;
+}
+.cal-cell-marked:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@keyframes calShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.cal-nav-shake {
+  animation: calShake 0.35s ease;
+}
