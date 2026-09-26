@@ -2,112 +2,102 @@
 
 A multi-agent AI SaaS back-office for Indian MSMEs — five specialist agents read invoices, draft GST filings, chase overdue payments, and forecast cash flow, coordinated by an Orchestrator that surfaces a daily business brief.
 
-This repository is currently a **scaffold** — the full folder structure for frontend, backend, and AI agent code, with no implementation yet. Empty files mark exactly where each piece of logic belongs.
+**Frontend: complete and tested.** Backend: designed, not yet built.
+
+## Run it locally
+
+```bash
+cd apps/web
+npm install --no-audit --no-fund --legacy-peer-deps
+npm run dev
+```
+
+Open **http://localhost:3000**.
+
+| Page | Route |
+|---|---|
+| Landing | `/` |
+| Login | `/login` |
+| Dashboard | `/dashboard` |
+| Your Profile | `/profile` |
+| Ledger | `/ledger` |
+| Collections | `/collections` |
+| Crew | `/crew` |
+| Privacy | `/privacy` |
+| Resources | `/resources` |
+| Settings | `/settings` |
+
+All 10 pages above are real, built, and tested — not placeholders. Onboarding, Invoice Detail, Cash-flow (deep-dive), Trust Score, and Billing are still placeholder stubs (lower priority per the PRD).
+
+Every page ships **without a backend yet** — all data shown (invoices, agent activity, GST figures, etc.) is hardcoded demo content. Sign-in currently routes straight through with no real auth check, and "Delete account" in Settings asks for confirmation but can't actually delete anything yet.
+
+**Light/Dark theme**: a real toggle exists — the 🌙/☀️ icon in the nav, or the full picker on `/settings` (Light / Dark / System). It persists across reloads via `localStorage` and applies before the page paints, so there's no flash of the wrong theme. Dark mode is a genuine near-black (`#07090A`), not just a dimmed version of light mode.
 
 ## Repository structure
 
 ```
 ledgercrew-ai/
 ├── apps/
-│   └── web/                          Next.js frontend (deployed on Vercel)
+│   └── web/                          Next.js 15 + React 19 + Tailwind frontend
 │       ├── app/
-│       │   ├── (marketing)/          Public landing page
+│       │   ├── (marketing)/page.tsx        Landing — ✅ built
 │       │   ├── (auth)/
-│       │   │   ├── login/
-│       │   │   └── onboarding/
-│       │   ├── (dashboard)/          Authenticated app
-│       │   │   ├── dashboard/
-│       │   │   ├── ledger/
-│       │   │   │   └── [invoiceId]/  Invoice detail view
-│       │   │   ├── collections/
-│       │   │   ├── crew/
-│       │   │   ├── cash-flow/
-│       │   │   ├── trust-score/
-│       │   │   ├── settings/
-│       │   │   ├── billing/
-│       │   │   ├── privacy/
-│       │   │   └── resources/
-│       │   └── api/
-│       │       ├── webhooks/
-│       │       │   ├── whatsapp/     Twilio WhatsApp Sandbox webhook
-│       │       │   └── payments/     Billing provider webhook
-│       │       └── agents/
-│       │           └── [agentName]/  Invoke a specific crew agent
-│       ├── components/
-│       │   ├── ui/                   Design-system primitives (buttons, cards, pills)
-│       │   ├── dashboard/            Dashboard-specific components
-│       │   ├── crew/                 Agent cards, reasoning panel, etc.
-│       │   └── charts/               Sparkline, gauge, bar chart components
-│       ├── lib/
-│       │   ├── supabase/             Client + server Supabase instances
-│       │   ├── hooks/
-│       │   └── utils/
-│       ├── styles/
-│       │   └── tokens.css            Design tokens (colors, fonts) — see /design
-│       └── public/assets/
+│       │   │   ├── login/page.tsx          ✅ built (Vanta glow, GSAP animations)
+│       │   │   └── onboarding/             placeholder
+│       │   ├── (dashboard)/                Shared nav/layout — ✅ built (incl. theme quick-toggle)
+│       │   │   ├── dashboard/page.tsx      ✅ built (hero, attention queue, chat, activity feed, calendar, gauge)
+│       │   │   ├── profile/page.tsx        ✅ built (avatar upload, GST fields, document vault)
+│       │   │   ├── ledger/page.tsx         ✅ built
+│       │   │   ├── collections/page.tsx    ✅ built
+│       │   │   ├── crew/page.tsx           ✅ built
+│       │   │   ├── privacy/page.tsx        ✅ built
+│       │   │   ├── resources/page.tsx      ✅ built
+│       │   │   ├── settings/page.tsx       ✅ built (theme, automation, notifications, team, danger zone)
+│       │   │   ├── cash-flow/, trust-score/, billing/   placeholders
+│       │   │   └── ledger/[invoiceId]/     placeholder
+│       │   └── api/webhooks/, api/agents/  route stubs (501 not implemented)
+│       ├── lib/theme.ts              Shared theme read/write/detect logic
+│       ├── types/vanta.d.ts          Hand-written types for the untyped vanta package
+│       └── (components/, styles/ — scaffolded, not yet populated)
 │
-├── agents/                           AI agent orchestration (the "crew")
-│   ├── orchestrator/                 Plans agent execution, holds shared state
-│   ├── intake/                       Invoice/receipt OCR extraction
-│   ├── compliance/                   GST classification + GSTR draft generation
-│   ├── collections/                  Staged payment reminder drafting
-│   ├── guardrail/                    Reviews Collections drafts before sending
-│   ├── cash-flow/                    30/60/90-day forecasting
-│   ├── shared/
-│   │   ├── memory/                   Per-tenant pgvector memory access
-│   │   ├── audit-log/                Logs every agent decision
-│   │   └── llm-clients/              Claude, Groq, Gemini API clients
-│   └── graph.ts                      LangGraph/CrewAI orchestration graph definition
-│   (each agent folder has a /prompts subfolder for its system prompts)
+├── agents/                           AI agent orchestration (the "crew") — scaffolded, not built
+│   ├── orchestrator/, intake/, compliance/, collections/, guardrail/, cash-flow/
+│   └── shared/{memory, audit-log, llm-clients}/
 │
-├── supabase/                         Backend: database + serverless functions
-│   ├── migrations/                   SQL schema migrations (multi-tenant, RLS)
-│   ├── functions/
-│   │   ├── process-invoice/          Edge Function: triggers Intake on upload
-│   │   ├── send-reminder/            Edge Function: triggers Collections + Guardrail
-│   │   ├── daily-brief/              Edge Function: triggers Orchestrator's daily brief
-│   │   └── heartbeat/                Keeps the free-tier project from auto-pausing
-│   ├── seed.sql                      Demo/seed data
-│   └── config.toml
+├── supabase/                         Backend — scaffolded, not built
+│   ├── migrations/                   Multi-tenant schema + RLS (see Backend plan below)
+│   └── functions/{process-invoice, send-reminder, daily-brief, heartbeat}/
 │
-├── integrations/                     Third-party service clients
-│   ├── whatsapp/                     Twilio WhatsApp Sandbox intake
-│   ├── voice/                        Groq Whisper (STT) + Web Speech API (TTS)
-│   ├── email/                        Resend transactional email
-│   └── gst/                          Official GST/Income Tax/Udyam portal links
-│
-├── packages/
-│   └── shared-types/                 TypeScript types shared between web + agents
-│
-├── design/
-│   └── tokens.json                   Source-of-truth design tokens (see docs)
-│
-├── prototypes/                       Already-built static HTML UI prototypes
-│   ├── landing.html                  Marketing page (built)
-│   └── app.html                      Login + Dashboard/Ledger/Collections/Crew/Privacy/Resources (built)
-│
+├── integrations/                     WhatsApp (Twilio), voice (Groq Whisper), email (Resend), GST links
+├── packages/shared-types/            Shared TypeScript types
+├── prototypes/                       Original static HTML UI prototypes (kept in sync as a design reference)
 ├── docs/
-│   ├── PROJECT_DOCUMENTATION.md      Full technical documentation + design system
-│   ├── ledgercrew-ai-prd.pdf         Product Requirements Document
-│   └── (Word/PDF copies of both)
-│
-├── scripts/
-│   └── setup.sh                      Local dev environment setup
-│
+│   ├── PROJECT_DOCUMENTATION.md      Full architecture, agent responsibilities, design system
+│   └── ledgercrew-ai-prd.pdf         Product Requirements Document
 ├── .env.example
-├── .gitignore
 └── LICENSE
 ```
 
-## Status
+## Backend plan (Supabase) — designed, next up to build
 
-Empty scaffold — no implementation yet. The `prototypes/` folder contains the two static HTML pages already designed (open directly in a browser); everything under `apps/`, `agents/`, `supabase/`, `integrations/`, and `packages/` is structure only, ready for real code to be written into it.
+**Data model:** `businesses`, `profiles`, `clients`, `invoices`, `collections_stages`, `agent_activity_log` (powers the Dashboard's live feed, Crew's reasoning traces, and Resources' calculation proof — one table, three UI surfaces), `gst_filings`, `calendar_events`, `agent_settings`, `agent_memory` (pgvector, per-tenant), `trust_score_aggregates` (kept structurally separate from per-business data).
 
-See `docs/PROJECT_DOCUMENTATION.md` for the full architecture, agent responsibilities, and design system, and `docs/ledgercrew-ai-prd.pdf` for feature priorities and phased build plan.
+**Multi-tenancy:** every table gets `business_id`; one uniform RLS policy (`business_id = (select business_id from profiles where id = auth.uid())`) rather than per-table exceptions.
 
-## Tech stack (planned)
+**Auth:** Supabase Auth, email/password + Google OAuth (buttons already built on `/login`). The WhatsApp button stays real but doesn't authenticate anyone yet — it's an intake channel, not an auth provider.
 
-Next.js (Vercel) · Supabase (DB/Auth/Storage/pgvector) · LangGraph or CrewAI · Claude API · Groq/Gemini Flash · Resend · Twilio WhatsApp Sandbox — all free-tier.
+**Storage:** `avatars` (public-read) and `documents` (private, business-scoped) buckets — makes Your Profile's document vault persist for real instead of just in-tab memory.
+
+**Realtime:** subscribing to `agent_activity_log` inserts replaces the Dashboard's current `setInterval` demo feed with genuinely live agent output.
+
+**Build order:** (1) Supabase project + client wiring → (2) core schema + RLS → (3) real auth on Login and real logout/delete on Settings → (4) Storage buckets wired to Profile → (5) `agent_activity_log` + Realtime → (6) collections/GST/calendar tables → (7) first real Edge Function (`process-invoice`, real Claude call) → (8) remaining Edge Functions → (9) `agent_memory` → (10) trust score aggregation (deliberately last — needs real cross-tenant usage to mean anything).
+
+Full detail in `docs/PROJECT_DOCUMENTATION.md`.
+
+## Tech stack
+
+**Built:** Next.js 15, React 19, TypeScript, Tailwind CSS, GSAP, three.js + Vanta.js.
+**Planned:** Supabase (DB/Auth/Storage/pgvector) · LangGraph or CrewAI · Claude API · Groq/Gemini Flash · Resend · Twilio WhatsApp Sandbox — all free-tier.
 
 ## License
 
