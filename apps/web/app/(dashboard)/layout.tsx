@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import gsap from "gsap";
+import { applyTheme, getStoredTheme, isEffectivelyDark } from "@/lib/theme";
 
 const TABS = [
   { label: "Dashboard", href: "/dashboard" },
@@ -13,6 +14,7 @@ const TABS = [
   { label: "Crew", href: "/crew" },
   { label: "Privacy", href: "/privacy" },
   { label: "Resources", href: "/resources" },
+  { label: "Settings", href: "/settings" },
 ];
 
 const DUTY = [
@@ -43,6 +45,17 @@ export default function DashboardLayout({
   const tabsRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [themeIcon, setThemeIcon] = useState<string | null>(null);
+
+  useEffect(() => {
+    setThemeIcon(isEffectivelyDark(getStoredTheme()) ? "☀️" : "🌙");
+  }, []);
+
+  function toggleTheme() {
+    const goingDark = !isEffectivelyDark(getStoredTheme());
+    applyTheme(goingDark ? "dark" : "light", true);
+    setThemeIcon(goingDark ? "☀️" : "🌙");
+  }
 
   useEffect(() => {
     const activeTab = tabRefs.current[pathname];
@@ -93,6 +106,13 @@ export default function DashboardLayout({
         </div>
 
         <div className="flex-1" />
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle light/dark theme"
+          className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-[15px] transition hover:border-amber"
+        >
+          {themeIcon ?? " "}
+        </button>
         <button className="rounded-full bg-ink px-[18px] py-2.5 text-[13.5px] font-medium text-bg">
           Upload invoice
         </button>

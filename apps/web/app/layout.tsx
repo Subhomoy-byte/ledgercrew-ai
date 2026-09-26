@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -36,6 +37,16 @@ export default function RootLayout({
       <body
         className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} antialiased`}
       >
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+            try {
+              var t = localStorage.getItem('lc-theme');
+              if (t === 'light' || t === 'dark') {
+                document.documentElement.setAttribute('data-theme', t);
+              }
+            } catch (e) {}
+          `}
+        </Script>
         {children}
       </body>
     </html>
