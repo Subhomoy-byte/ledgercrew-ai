@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LedgerCrew AI</title>
+<script>
+  try {
+    var savedTheme = localStorage.getItem('lc-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+  } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -28,19 +36,19 @@
   }
   :root:not([data-theme="light"]) {
     @media (prefers-color-scheme: dark) {
-      --bg: #0F1613; --surface: #182420; --surface-2: #1F2E28;
-      --ink: #ECE6D3; --ink-soft: #A7A08D; --line: #2A3733;
-      --amber: #E3A63D; --amber-soft: #3A2E17; --green: #4FA189; --green-soft: #17332B;
-      --red: #E06A54; --red-soft: #3A1E19;
-      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -14px rgba(0,0,0,0.55);
+      --bg: #07090A; --surface: #101312; --surface-2: #171D1A;
+      --ink: #FAFAF7; --ink-soft: #9C9890; --line: #232A26;
+      --amber: #F0B04A; --amber-soft: #2E2410; --green: #5FC09F; --green-soft: #132420;
+      --red: #F17A61; --red-soft: #2E1B16;
+      --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 16px 40px -16px rgba(0,0,0,0.7);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0F1613; --surface: #182420; --surface-2: #1F2E28;
-    --ink: #ECE6D3; --ink-soft: #A7A08D; --line: #2A3733;
-    --amber: #E3A63D; --amber-soft: #3A2E17; --green: #4FA189; --green-soft: #17332B;
-    --red: #E06A54; --red-soft: #3A1E19;
-    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -14px rgba(0,0,0,0.55);
+    --bg: #07090A; --surface: #101312; --surface-2: #171D1A;
+    --ink: #FAFAF7; --ink-soft: #9C9890; --line: #232A26;
+    --amber: #F0B04A; --amber-soft: #2E2410; --green: #5FC09F; --green-soft: #132420;
+    --red: #F17A61; --red-soft: #2E1B16;
+    --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 16px 40px -16px rgba(0,0,0,0.7);
   }
 
   * { box-sizing: border-box; }
@@ -373,6 +381,172 @@
   .calc-row.total { border-top: 2px solid var(--ink); border-bottom: none; margin-top: 4px; padding-top: 16px; font-weight: 600; font-size: 16.5px; }
   .calc-row .calc-val { font-family: 'IBM Plex Mono', monospace; }
   .calc-note { margin-top: 18px; font-size: 13.5px; color: var(--ink-soft); background: var(--surface-2); padding: 14px 18px; border-radius: 10px; line-height: 1.6; }
+
+  /* your profile page */
+  .profile-header-card { padding: 32px 36px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .avatar-upload { position: relative; width: 92px; height: 92px; flex-shrink: 0; }
+  .avatar-upload img, .avatar-upload .avatar-placeholder {
+    width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+    background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+    font-family: 'Fraunces', serif; font-size: 30px; color: var(--ink-soft);
+  }
+  .avatar-upload img { display: none; }
+  .avatar-upload .avatar-edit {
+    position: absolute; bottom: -2px; right: -2px; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ink); color: var(--bg); border: 3px solid var(--surface); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+  }
+  .profile-header-text h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 21px; margin: 0 0 4px; }
+  .profile-header-text .sub { font-size: 13px; color: var(--ink-soft); }
+  .profile-header-text .member-since { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
+
+  .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 8px 22px 22px; }
+  @media (max-width: 640px) { .field-grid { grid-template-columns: 1fr; } }
+  .field-item label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); display: block; margin-bottom: 6px; }
+  .field-item input {
+    width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font-family: inherit; font-size: 13.5px; outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .field-item input:focus { border-color: var(--amber); }
+  .field-item input[readonly] { background: var(--surface-2); color: var(--ink-soft); }
+
+  .password-note { margin: 0 22px 20px; font-size: 12px; color: var(--ink-soft); background: var(--surface-2); padding: 11px 15px; border-radius: 8px; display: flex; align-items: center; gap: 8px; }
+
+  .doc-drop { margin: 8px 22px 18px; border: 2px dashed var(--line); border-radius: 14px; padding: 30px; text-align: center; cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease; }
+  .doc-drop:hover, .doc-drop.dragover { border-color: var(--amber); background: var(--amber-soft); }
+  .doc-drop .doc-icon { font-size: 26px; margin-bottom: 8px; }
+  .doc-drop p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+  .doc-drop p.small { font-size: 11.5px; margin-top: 4px; }
+
+  .doc-list { padding: 0 22px 22px; display: flex; flex-direction: column; gap: 10px; }
+  .doc-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; opacity: 0; transform: translateY(6px); }
+  .doc-item .doc-file-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .doc-item .doc-name { flex: 1; min-width: 0; }
+  .doc-item .doc-name .fname { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-item .doc-name .fmeta { font-size: 11px; color: var(--ink-soft); }
+  .doc-item .doc-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .doc-item .doc-actions a, .doc-item .doc-actions button {
+    width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--surface-2); color: var(--ink);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none; font-size: 13px;
+  }
+  .doc-item .doc-actions .remove:hover { background: var(--red-soft); color: var(--red); }
+  .doc-empty { padding: 0 22px 22px; font-size: 13px; color: var(--ink-soft); font-style: italic; }
+
+  /* nav quick theme toggle */
+  .theme-quick-toggle {
+    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; margin-right: 4px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .theme-quick-toggle:hover { border-color: var(--amber); transform: rotate(-12deg); }
+
+  /* settings page — glassmorphism */
+  .settings-wrap { position: relative; }
+  .settings-glow { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; opacity: 0.55; }
+  .settings-glow .sblob {
+    position: absolute; border-radius: 50%; filter: blur(90px);
+    animation: rupeeDrift 16s ease-in-out infinite;
+  }
+  .settings-glow .sblob-a { width: 460px; height: 460px; background: var(--amber); opacity: 0.14; top: -140px; right: -100px; }
+  .settings-glow .sblob-b { width: 380px; height: 380px; background: var(--green); opacity: 0.1; bottom: -120px; left: -80px; animation-delay: 2s; }
+
+  .settings-title {
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 32px; letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  :root[data-theme="dark"] .settings-title { color: #FFFFFF; text-shadow: 0 0 30px color-mix(in srgb, var(--amber) 25%, transparent); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .settings-title { color: #FFFFFF; text-shadow: 0 0 30px color-mix(in srgb, var(--amber) 25%, transparent); }
+  }
+
+  .glass-card {
+    position: relative; border-radius: 22px; padding: 30px 32px;
+    background: color-mix(in srgb, var(--surface) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    box-shadow: var(--shadow);
+    opacity: 0; transform: translateY(18px);
+  }
+  .glass-card + .glass-card { margin-top: 20px; }
+  .glass-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .glass-card-icon {
+    width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; background: color-mix(in srgb, var(--amber) 16%, transparent); flex-shrink: 0;
+  }
+  .glass-card-head h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0; color: var(--ink); }
+  .glass-card-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+
+  /* theme switcher */
+  .theme-switch-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .theme-option {
+    flex: 1; min-width: 150px; cursor: pointer; border-radius: 16px; padding: 18px 20px;
+    border: 1.5px solid var(--line); background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+    transition: border-color 0.25s ease, transform 0.2s ease;
+  }
+  .theme-option:hover { transform: translateY(-2px); }
+  .theme-option.active { border-color: var(--amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 18%, transparent); }
+  .theme-option .t-icon { font-size: 20px; margin-bottom: 10px; }
+  .theme-option .t-label { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+  .theme-option .t-desc { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; }
+  .theme-preview-strip { display: flex; gap: 4px; margin-top: 12px; height: 8px; border-radius: 6px; overflow: hidden; }
+
+  /* generic settings rows */
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  }
+  .setting-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .setting-row:first-child { padding-top: 0; }
+  .setting-row-label { font-size: 13.5px; font-weight: 500; color: var(--ink); }
+  .setting-row-desc { font-size: 12px; color: var(--ink-soft); margin-top: 2px; max-width: 46ch; }
+
+  /* toggle switch */
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track {
+    position: absolute; inset: 0; border-radius: 999px; background: var(--line); cursor: pointer;
+    transition: background 0.25s ease;
+  }
+  .switch-track::before {
+    content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: var(--surface);
+    top: 3px; left: 3px; transition: transform 0.25s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .switch input:checked + .switch-track { background: var(--amber); }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+
+  /* select-style pill dropdown look (static, for language row) */
+  .settings-select {
+    padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface-2) 70%, transparent); color: var(--ink);
+    font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+
+  .settings-input {
+    padding: 9px 13px; border-radius: 10px; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 60%, transparent); color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; outline: none; width: 180px;
+    transition: border-color 0.2s ease;
+  }
+  .settings-input:focus { border-color: var(--amber); }
+
+  .team-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+  .team-row:last-child { border-bottom: none; }
+  .team-avatar {
+    width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); font-family: 'Fraunces', serif; font-size: 13px; flex-shrink: 0;
+  }
+  .team-role { font-size: 11px; color: var(--ink-soft); background: color-mix(in srgb, var(--surface-2) 70%, transparent); padding: 3px 10px; border-radius: 999px; margin-left: auto; }
+
+  .danger-zone { border-color: color-mix(in srgb, var(--red) 35%, transparent) !important; }
+  .danger-btn {
+    padding: 9px 18px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+    background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); font-family: inherit;
+    font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.2s ease;
+  }
+  .danger-btn:hover { background: color-mix(in srgb, var(--red) 18%, transparent); }
   .ledger { background: #FFFDF6; color: #1D1B14; border-radius: 0 0 16px 16px; overflow: hidden; }
   table { width: 100%; border-collapse: collapse; }
   thead th { text-align: left; font-size: 12px; font-weight: 500; color: #8A8168; padding: 12px 22px 10px; border-bottom: 1px solid #E4DBBF; }
@@ -623,13 +797,16 @@
     <div class="tabs" id="tabs">
       <div class="tab-indicator" id="tabIndicator"></div>
       <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="profile">Your Profile</button>
       <button class="tab" data-view="ledger">Ledger</button>
       <button class="tab" data-view="collections">Collections</button>
       <button class="tab" data-view="crew">Crew</button>
       <button class="tab" data-view="privacy">Privacy</button>
       <button class="tab" data-view="resources">Resources</button>
+      <button class="tab" data-view="settings">Settings</button>
     </div>
     <div class="nav-spacer"></div>
+    <button class="theme-quick-toggle" id="themeQuickToggle" type="button" title="Toggle light/dark">🌙</button>
     <button class="btn btn-primary">Upload invoice</button>
   </nav>
 
@@ -1097,6 +1274,220 @@
       </div>
     </section>
 
+    <!-- YOUR PROFILE -->
+    <section class="view" data-view="profile">
+      <h1 class="page-title">Your Profile</h1>
+      <p class="page-sub">Your details, your GST credentials, and your documents — all in one place.</p>
+
+      <div class="card profile-header-card" style="margin-bottom:24px;">
+        <div class="avatar-upload">
+          <div class="avatar-placeholder" id="avatarPlaceholder">SD</div>
+          <img id="avatarImg" alt="Profile picture">
+          <button class="avatar-edit" id="avatarEditBtn" type="button" title="Upload profile picture">📷</button>
+          <input type="file" id="avatarInput" accept="image/*" style="display:none;">
+        </div>
+        <div class="profile-header-text">
+          <h2>Subhomoy Das</h2>
+          <div class="sub">Owner · Sharma Textiles &amp; Co.</div>
+          <div class="member-since">Member since September 2026</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-head"><div><div class="eyebrow">Personal &amp; business details</div><h2>Your details</h2></div></div>
+        <div class="field-grid">
+          <div class="field-item"><label>Full name</label><input type="text" value="Subhomoy Das"></div>
+          <div class="field-item"><label>Email</label><input type="email" value="subhomoy@sharmatextiles.in"></div>
+          <div class="field-item"><label>Phone</label><input type="tel" value="+91 98XXX XXXXX"></div>
+          <div class="field-item"><label>Business name</label><input type="text" value="Sharma Textiles &amp; Co."></div>
+          <div class="field-item"><label>Business type</label><input type="text" value="Sole Proprietorship"></div>
+          <div class="field-item"><label>Business address</label><input type="text" value="Kolkata, West Bengal"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-head"><div><div class="eyebrow">Tax credentials</div><h2>GST &amp; registration details</h2></div></div>
+        <div class="field-grid">
+          <div class="field-item"><label>GSTIN</label><input type="text" value="19ABCDE1234F1Z5" readonly></div>
+          <div class="field-item"><label>PAN</label><input type="text" value="ABCDE1234F" readonly></div>
+          <div class="field-item"><label>Business registration no.</label><input type="text" value="U74999WB2026PTC123456" readonly></div>
+          <div class="field-item"><label>State jurisdiction</label><input type="text" value="West Bengal" readonly></div>
+        </div>
+        <div class="password-note">🔒 Login password and other security credentials are never shown here — manage those separately in Settings.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="eyebrow">Document vault</div><h2>Certificates &amp; documents</h2></div><span class="muted" id="docCount">0 uploaded</span></div>
+        <div class="doc-drop" id="docDrop">
+          <div class="doc-icon">📁</div>
+          <p>Drag &amp; drop a file here, or click to upload</p>
+          <p class="small">GST certificate, PAN card, business registration, Udyam certificate — kept here so you always have a copy to download, even offline.</p>
+        </div>
+        <input type="file" id="docInput" multiple style="display:none;">
+        <div class="doc-list" id="docList"></div>
+        <div class="doc-empty" id="docEmpty">No documents uploaded yet.</div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view settings-wrap" data-view="settings">
+      <div class="settings-glow"><div class="sblob sblob-a"></div><div class="sblob sblob-b"></div></div>
+
+      <div class="settings-title" style="margin-bottom:6px;">Settings</div>
+      <p class="page-sub" style="margin-bottom:28px;">Everything that controls how LedgerCrew AI runs for your business.</p>
+
+      <!-- Appearance -->
+      <div class="glass-card">
+        <div class="glass-card-head">
+          <div class="glass-card-icon">🎨</div>
+          <div>
+            <h2>Appearance</h2>
+            <p>Choose how the crew looks on your screen.</p>
+          </div>
+        </div>
+        <div class="theme-switch-row" id="themeSwitchRow">
+          <div class="theme-option" data-theme-choice="light">
+            <div class="t-icon">☀️</div>
+            <div class="t-label">Light</div>
+            <div class="t-desc">Warm paper tones, easy on the eyes by day.</div>
+            <div class="theme-preview-strip">
+              <div style="flex:2;background:#F3EEDD;"></div><div style="flex:1;background:#B8791E;"></div><div style="flex:1;background:#1D1B14;"></div>
+            </div>
+          </div>
+          <div class="theme-option" data-theme-choice="dark">
+            <div class="t-icon">🌙</div>
+            <div class="t-label">Dark</div>
+            <div class="t-desc">Deep black, bright glow — built for late nights.</div>
+            <div class="theme-preview-strip">
+              <div style="flex:2;background:#07090A;"></div><div style="flex:1;background:#F0B04A;"></div><div style="flex:1;background:#FAFAF7;"></div>
+            </div>
+          </div>
+          <div class="theme-option" data-theme-choice="system">
+            <div class="t-icon">🖥️</div>
+            <div class="t-label">System</div>
+            <div class="t-desc">Match your device's own setting automatically.</div>
+            <div class="theme-preview-strip">
+              <div style="flex:1;background:#F3EEDD;"></div><div style="flex:1;background:#07090A;"></div><div style="flex:1;background:#B8791E;"></div><div style="flex:1;background:#F0B04A;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Automation -->
+      <div class="glass-card">
+        <div class="glass-card-head">
+          <div class="glass-card-icon">🤖</div>
+          <div>
+            <h2>Automation</h2>
+            <p>How much the crew does on its own before checking with you.</p>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Approve reminders before sending</div>
+            <div class="setting-row-desc">When on, Collections drafts wait for your OK on the Dashboard instead of sending automatically.</div>
+          </div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">WhatsApp intake number</div>
+            <div class="setting-row-desc">Clients forward invoices here — Intake picks them up automatically.</div>
+          </div>
+          <input type="text" class="settings-input" value="+91 98XXX-XXXXX">
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Voice &amp; language</div>
+            <div class="setting-row-desc">Language used when you ask the crew a question by voice.</div>
+          </div>
+          <select class="settings-select">
+            <option>English</option>
+            <option>Hindi</option>
+            <option>Bengali</option>
+            <option>Tamil</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="glass-card">
+        <div class="glass-card-head">
+          <div class="glass-card-icon">🔔</div>
+          <div>
+            <h2>Notifications</h2>
+            <p>What the crew pings you about, and how.</p>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Daily business brief</div>
+            <div class="setting-row-desc">A two-line email summary every morning.</div>
+          </div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Urgent flags (overdue, missing GSTIN)</div>
+            <div class="setting-row-desc">Instant alert the moment something needs your review.</div>
+          </div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Weekly GST &amp; cash-flow digest</div>
+            <div class="setting-row-desc">A rollup every Monday morning.</div>
+          </div>
+          <label class="switch"><input type="checkbox"><span class="switch-track"></span></label>
+        </div>
+      </div>
+
+      <!-- Team -->
+      <div class="glass-card">
+        <div class="glass-card-head">
+          <div class="glass-card-icon">👥</div>
+          <div>
+            <h2>Team</h2>
+            <p>Who else can see and act on this business's ledger.</p>
+          </div>
+        </div>
+        <div class="team-row">
+          <div class="team-avatar">SD</div>
+          <div><div class="setting-row-label" style="margin-bottom:1px;">Subhomoy Das</div><div class="setting-row-desc">subhomoy@sharmatextiles.in</div></div>
+          <span class="team-role">Owner</span>
+        </div>
+        <div class="team-row">
+          <div class="team-avatar">+</div>
+          <div><div class="setting-row-label" style="margin-bottom:1px;">Invite a teammate</div><div class="setting-row-desc">They'll get view or approve access — you choose.</div></div>
+          <button class="btn-sm ghost" style="margin-left:auto;">Invite</button>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="glass-card danger-zone">
+        <div class="glass-card-head">
+          <div class="glass-card-icon" style="background:color-mix(in srgb, var(--red) 16%, transparent);">⚠️</div>
+          <div>
+            <h2>Danger zone</h2>
+            <p>Careful — these can't be undone from here.</p>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Sign out of this device</div>
+          </div>
+          <button class="danger-btn">Sign out</button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-row-label">Delete this business account</div>
+            <div class="setting-row-desc">Permanently removes your ledger, documents, and crew history.</div>
+          </div>
+          <button class="danger-btn">Delete account</button>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <div class="chat-panel" id="chatPanel">
@@ -1148,6 +1539,8 @@ function animateView(view) {
   const activityBoxes = view.querySelectorAll('.activity-box');
   const linkCards = view.querySelectorAll('.link-round-card');
   if (linkCards.length) gsap.fromTo(linkCards, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, delay: 0.15, ease });
+  const glassCards = view.querySelectorAll('.glass-card');
+  if (glassCards.length) gsap.fromTo(glassCards, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.1, ease });
   const bars = view.querySelectorAll('.bar');
 
   gsap.fromTo(cards, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.08, ease });
@@ -1323,6 +1716,125 @@ document.getElementById('qnaAsk').addEventListener('click', () => {
   showQnaAnswer(qnaMatch(val));
 });
 document.getElementById('qnaInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('qnaAsk').click(); });
+
+/* ---- your profile: avatar upload ---- */
+const avatarInput = document.getElementById('avatarInput');
+const avatarImg = document.getElementById('avatarImg');
+const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+document.getElementById('avatarEditBtn').addEventListener('click', () => avatarInput.click());
+avatarInput.addEventListener('change', () => {
+  const file = avatarInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    avatarImg.src = e.target.result;
+    avatarImg.style.display = 'block';
+    avatarPlaceholder.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---- your profile: document vault ---- */
+const docDrop = document.getElementById('docDrop');
+const docInput = document.getElementById('docInput');
+const docList = document.getElementById('docList');
+const docEmpty = document.getElementById('docEmpty');
+const docCount = document.getElementById('docCount');
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (['pdf'].includes(ext)) return '📕';
+  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return '🖼️';
+  if (['doc','docx'].includes(ext)) return '📄';
+  return '📎';
+}
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+function updateDocCount() {
+  const n = docList.children.length;
+  docCount.textContent = n + (n === 1 ? ' uploaded' : ' uploaded');
+  docEmpty.style.display = n ? 'none' : 'block';
+}
+function addDocFile(file) {
+  const url = URL.createObjectURL(file);
+  const el = document.createElement('div');
+  el.className = 'doc-item';
+  el.innerHTML = `
+    <div class="doc-file-icon">${fileIcon(file.name)}</div>
+    <div class="doc-name"><div class="fname">${file.name}</div><div class="fmeta">${formatSize(file.size)} · uploaded just now</div></div>
+    <div class="doc-actions">
+      <a href="${url}" download="${file.name}" title="Download">⬇</a>
+      <button class="remove" title="Remove" type="button">✕</button>
+    </div>`;
+  el.querySelector('.remove').addEventListener('click', () => {
+    URL.revokeObjectURL(url);
+    el.remove();
+    updateDocCount();
+  });
+  docList.appendChild(el);
+  gsap.fromTo(el, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.35, ease });
+  updateDocCount();
+}
+docDrop.addEventListener('click', () => docInput.click());
+docInput.addEventListener('change', () => { Array.from(docInput.files).forEach(addDocFile); docInput.value = ''; });
+['dragover', 'dragleave', 'drop'].forEach(evt => {
+  docDrop.addEventListener(evt, (e) => {
+    e.preventDefault();
+    docDrop.classList.toggle('dragover', evt === 'dragover');
+    if (evt === 'drop') Array.from(e.dataTransfer.files).forEach(addDocFile);
+  });
+});
+updateDocCount();
+
+/* ---- theme switching ---- */
+const THEME_KEY = 'lc-theme';
+
+function getStoredTheme() {
+  try { return localStorage.getItem(THEME_KEY) || 'system'; } catch (e) { return 'system'; }
+}
+
+function applyTheme(choice, persist) {
+  if (choice === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (choice === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    choice = 'system';
+  }
+  if (persist) {
+    try {
+      if (choice === 'system') localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, choice);
+    } catch (e) {}
+  }
+  document.querySelectorAll('.theme-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.themeChoice === choice);
+  });
+  const quickToggle = document.getElementById('themeQuickToggle');
+  if (quickToggle) {
+    const isDark = choice === 'dark' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    quickToggle.textContent = isDark ? '☀️' : '🌙';
+  }
+}
+
+applyTheme(getStoredTheme(), false);
+
+document.querySelectorAll('.theme-option').forEach(el => {
+  el.addEventListener('click', () => applyTheme(el.dataset.themeChoice, true));
+});
+
+const themeQuickToggleBtn = document.getElementById('themeQuickToggle');
+if (themeQuickToggleBtn) {
+  themeQuickToggleBtn.addEventListener('click', () => {
+    const current = getStoredTheme();
+    const isDarkNow = current === 'dark' || (current === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyTheme(isDarkNow ? 'light' : 'dark', true);
+  });
+}
 
 /* attention queue actions */
 document.querySelectorAll('.attn-item [data-resolve]').forEach(btn => {
