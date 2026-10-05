@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import { signInAction, signUpAction, initialAuthState } from "./actions";
 
 function GoogleIcon() {
   return (
@@ -39,9 +39,12 @@ const FLOAT_POSITIONS = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [oauthNotice, setOauthNotice] = useState<string | null>(null);
+  const [state, formAction, isPending] = useActionState(
+    mode === "signin" ? signInAction : signUpAction,
+    initialAuthState
+  );
 
   const cardRef = useRef<HTMLDivElement>(null);
   const vantaRef = useRef<HTMLDivElement>(null);
@@ -49,10 +52,8 @@ export default function LoginPage() {
   const subRef = useRef<HTMLParagraphElement>(null);
   const brandRef = useRef<HTMLDivElement>(null);
 
-  function handleSignIn(e?: FormEvent) {
-    e?.preventDefault();
-    // TODO(Step: backend/auth): wire this to real Supabase auth.
-    router.push("/dashboard");
+  function handleOAuthStub(provider: string) {
+    setOauthNotice(`${provider} sign-in is coming soon — use email for now.`);
   }
 
   useEffect(() => {
@@ -217,7 +218,7 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={handleSignIn}
+          onClick={() => handleOAuthStub("Google")}
           className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white py-3 text-[13.5px] font-medium text-[#3c4043] transition hover:shadow-md"
         >
           <GoogleIcon />
@@ -225,28 +226,32 @@ export default function LoginPage() {
         </button>
         <button
           type="button"
-          onClick={handleSignIn}
+          onClick={() => handleOAuthStub("WhatsApp")}
           className="flex w-full items-center justify-center gap-2 rounded-full border border-line bg-surface py-3 text-[13.5px] font-medium text-ink transition hover:border-green"
         >
           💬 Continue with WhatsApp
         </button>
 
+        {oauthNotice && (
+          <p className="mt-2.5 text-center text-xs text-ink-soft">{oauthNotice}</p>
+        )}
+
         <div className="my-5 flex items-center gap-3 text-[11.5px] text-ink-soft">
           <span className="h-px flex-1 bg-line" />
-          or sign in with email
+          {mode === "signin" ? "or sign in with email" : "or create an account"}
           <span className="h-px flex-1 bg-line" />
         </div>
 
-        <form onSubmit={handleSignIn}>
+        <form action={formAction}>
           <div className="mb-4">
             <label htmlFor="email" className="mb-1.5 block text-xs text-ink-soft">
               Email
             </label>
             <input
               id="email"
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              required
               placeholder="you@business.com"
               className="w-full rounded-[10px] border border-line bg-bg px-3.5 py-3 text-[13.5px] text-ink outline-none transition focus:border-amber"
             />
@@ -257,20 +262,50 @@ export default function LoginPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              required
               placeholder="••••••••"
               className="w-full rounded-[10px] border border-line bg-bg px-3.5 py-3 text-[13.5px] text-ink outline-none transition focus:border-amber"
             />
           </div>
+
+          {state.status !== "idle" && state.message && (
+            <p
+              className={`mb-4 rounded-lg px-3.5 py-2.5 text-[12.5px] ${
+                state.status === "error"
+                  ? "bg-red-soft text-red"
+                  : "bg-green-soft text-green"
+              }`}
+            >
+              {state.message}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="mt-1.5 w-full rounded-full bg-ink py-3.5 text-[13.5px] font-medium text-bg"
+            disabled={isPending}
+            className="mt-1.5 w-full rounded-full bg-ink py-3.5 text-[13.5px] font-medium text-bg disabled:opacity-60"
           >
-            Sign in
+            {isPending
+              ? mode === "signin"
+                ? "Signing in…"
+                : "Creating account…"
+              : mode === "signin"
+                ? "Sign in"
+                : "Create account"}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+          className="mt-4 w-full text-center text-xs text-ink-soft transition hover:text-ink"
+        >
+          {mode === "signin"
+            ? "New to LedgerCrew? Create an account"
+            : "Already have an account? Sign in"}
+        </button>
 
         <div className="mt-6 flex justify-center">
           {CREW_INITIALS.map((initial) => (
