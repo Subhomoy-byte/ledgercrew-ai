@@ -1,12 +1,52 @@
 import type { Metadata } from "next";
+import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-export const metadata: Metadata = { title: "LedgerCrew AI", description: "diagnostic" };
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  weight: ["400", "500", "600"],
+});
+
+const plexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  variable: "--font-plex-sans",
+  weight: ["400", "500", "600"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-plex-mono",
+  weight: ["400", "500"],
+});
+
+export const metadata: Metadata = {
+  title: "LedgerCrew AI",
+  description:
+    "A multi-agent AI back-office for Indian MSMEs — invoicing, GST compliance, collections, and cash-flow, handled by a crew of five specialist agents.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">
-        <Script id="theme-init" strategy="beforeInteractive">{`try{var t=localStorage.getItem('lc-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}`}</Script>
+      <body
+        className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} antialiased`}
+      >
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+            try {
+              var t = localStorage.getItem('lc-theme');
+              if (t === 'light' || t === 'dark') {
+                document.documentElement.setAttribute('data-theme', t);
+              }
+            } catch (e) {}
+          `}
+        </Script>
         {children}
       </body>
     </html>
