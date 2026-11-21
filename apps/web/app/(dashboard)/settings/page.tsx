@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import gsap from "gsap";
 import { applyTheme, getStoredTheme, type ThemeChoice } from "@/lib/theme";
+import { signOutAction, deleteAccountAction } from "./actions";
 
 function glassStyle(borderTint?: string): CSSProperties {
   return {
@@ -75,6 +75,8 @@ function ConfirmModal({
   confirmLabel,
   danger,
   requireText,
+  error,
+  busy,
   onConfirm,
   onCancel,
 }: {
@@ -84,6 +86,8 @@ function ConfirmModal({
   confirmLabel: string;
   danger?: boolean;
   requireText?: string;
+  error?: string | null;
+  busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -107,18 +111,24 @@ function ConfirmModal({
             className="mt-4 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-red"
           />
         )}
+        {error && (
+          <p className="mt-4 rounded-lg bg-red-soft px-3.5 py-2.5 text-[12.5px] leading-relaxed text-red">
+            {error}
+          </p>
+        )}
         <div className="mt-6 flex justify-end gap-2.5">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-full bg-surface-2 px-4 py-2 text-[13px] font-medium"
+            disabled={busy}
+            className="rounded-full bg-surface-2 px-4 py-2 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!canConfirm}
+            disabled={!canConfirm || busy}
             className={`rounded-full px-4 py-2 text-[13px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${
               danger ? "bg-red" : "bg-ink !text-bg"
             }`}
@@ -143,7 +153,6 @@ const TEAM = [
 ];
 
 export default function SettingsPage() {
-  const router = useRouter();
   const [theme, setTheme] = useState<ThemeChoice>("system");
   const [approveBeforeSend, setApproveBeforeSend] = useState(true);
   const [dailyBrief, setDailyBrief] = useState(true);
@@ -151,6 +160,9 @@ export default function SettingsPage() {
   const [weeklyDigest, setWeeklyDigest] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isSigningOut, startSignOutTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     setTheme(getStoredTheme());
@@ -178,13 +190,19 @@ export default function SettingsPage() {
 
   function handleLogout() {
     setLogoutOpen(false);
-    router.push("/login");
+    startSignOutTransition(() => {
+      signOutAction();
+    });
   }
 
   function handleDeleteAccount() {
-    setDeleteOpen(false);
-    // TODO(backend): call a real account-deletion endpoint once Supabase is wired up.
-    alert("Account deletion would be processed here — no backend is connected yet.");
+    setDeleteError(null);
+    // The modal stays open until the server finishes. On success the server
+    // redirects to /login; on failure it returns a message shown in the modal.
+    startDeleteTransition(async () => {
+      const result = await deleteAccountAction();
+      if (result?.error) setDeleteError(result.error);
+    });
   }
 
   return (
@@ -328,7 +346,7 @@ export default function SettingsPage() {
         open={logoutOpen}
         title="Log out of LedgerCrew?"
         desc="You'll need to sign in again to get back to your dashboard."
-        confirmLabel="Log out"
+        confirmLabel={isSigningOut ? "Logging out…" : "Log out"}
         onConfirm={handleLogout}
         onCancel={() => setLogoutOpen(false)}
       />
@@ -336,11 +354,16 @@ export default function SettingsPage() {
         open={deleteOpen}
         title="Delete your account?"
         desc="This permanently removes your business, invoices, and all agent history. This cannot be undone."
-        confirmLabel="Delete permanently"
+        confirmLabel={isDeleting ? "Deleting…" : "Delete permanently"}
         danger
         requireText="DELETE"
+        error={deleteError}
+        busy={isDeleting}
         onConfirm={handleDeleteAccount}
-        onCancel={() => setDeleteOpen(false)}
+        onCancel={() => {
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }}
       />
     </div>
   );
