@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteAccount, type DeletionDeps } from "@/lib/account-deletion";
+import { removeFolder } from "@/lib/storage-cleanup";
+import { AVATAR_BUCKET, DOCUMENT_BUCKET } from "@/lib/storage";
 
 export async function signOutAction() {
   const supabase = await createClient();
@@ -34,9 +36,16 @@ function adminDeps(admin: AdminClient): DeletionDeps {
         .neq("id", userId);
       return { data: count ?? 0, error: error?.message ?? null };
     },
+    // Files in Storage aren't removed by database cascades — do it explicitly.
+    removeBusinessFiles(businessId) {
+      return removeFolder(admin.storage.from(DOCUMENT_BUCKET), businessId);
+    },
     async deleteBusiness(businessId) {
       const { error } = await admin.from("businesses").delete().eq("id", businessId);
       return { error: error?.message ?? null };
+    },
+    removeUserFiles(userId) {
+      return removeFolder(admin.storage.from(AVATAR_BUCKET), userId);
     },
     async deleteUser(userId) {
       const { error } = await admin.auth.admin.deleteUser(userId);

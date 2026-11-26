@@ -1,21 +1,34 @@
 "use client";
 
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import { formatBytes, isOwnAvatarUrl } from "@/lib/storage";
+import {
+  createDownloadUrl,
+  deleteDocument,
+  listDocuments,
+  uploadAvatar,
+  uploadDocument,
+  type DocItem,
+} from "@/lib/storage-client";
 
-type DocFile = { id: string; file: File; url: string };
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const CONFIGURED = Boolean(SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (ext === "pdf") return "📕";
-  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "🖼️";
-  if (["doc", "docx"].includes(ext)) return "📄";
+  if (["png", "jpg", "jpeg", "webp"].includes(ext)) return "🖼️";
   return "📎";
 }
 
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+function formatDate(iso: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function Field({
@@ -45,41 +58,123 @@ function Field({
 }
 
 export default function ProfilePage() {
-  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
-  const [docs, setDocs] = useState<DocFile[]>([]);
+  // The Supabase client is created in the browser only (never during
+  // server rendering).
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [docs, setDocs] = useState<DocItem[]>([]);
+  const [loading, setLoading] = useState(CONFIGURED);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [busyPath, setBusyPath] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  useEffect(() => {
+    if (CONFIGURED) setSupabase(createClient());
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (authError || !auth.user) {
+        setLoadError("We couldn't confirm who you are. Please sign in again.");
+        setLoading(false);
+        return;
+      }
+      setUserId(auth.user.id);
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("business_id, avatar_url")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (profileError) {
+        setLoadError("We couldn't load your profile.");
+        setLoading(false);
+        return;
+      }
+
+      setAvatarUrl(profile?.avatar_url ?? null);
+      const bid: string | null = profile?.business_id ?? null;
+      setBusinessId(bid);
+
+      if (bid) {
+        const listed = await listDocuments(supabase, bid);
+        if (cancelled) return;
+        if (listed.ok) setDocs(listed.value);
+        else setDocError(listed.error);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  async function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setAvatarSrc(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    e.target.value = "";
+    if (!file || !supabase || !userId) return;
+    setAvatarBusy(true);
+    setAvatarError(null);
+    const result = await uploadAvatar(supabase, { userId, file, previousUrl: avatarUrl });
+    setAvatarBusy(false);
+    if (result.ok) setAvatarUrl(result.value);
+    else setAvatarError(result.error);
   }
 
-  function addFiles(files: FileList | File[]) {
-    const newDocs = Array.from(files).map((file) => ({
-      id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
-      file,
-      url: URL.createObjectURL(file),
-    }));
-    setDocs((prev) => [...prev, ...newDocs]);
+  async function handleUploadFiles(files: File[]) {
+    if (!supabase || !businessId || files.length === 0) return;
+    setUploading(true);
+    setDocError(null);
+    const problems: string[] = [];
+    for (const file of files) {
+      const result = await uploadDocument(supabase, { businessId, file });
+      if (result.ok) setDocs((prev) => [result.value, ...prev]);
+      else problems.push(result.error);
+    }
+    setUploading(false);
+    if (problems.length > 0) setDocError(problems.join(" "));
   }
 
-  function removeDoc(id: string) {
-    setDocs((prev) => {
-      const target = prev.find((d) => d.id === id);
-      if (target) URL.revokeObjectURL(target.url);
-      return prev.filter((d) => d.id !== id);
-    });
+  async function handleDownload(doc: DocItem) {
+    if (!supabase) return;
+    setBusyPath(doc.path);
+    setDocError(null);
+    const result = await createDownloadUrl(supabase, doc);
+    setBusyPath(null);
+    if (result.ok) window.location.assign(result.value);
+    else setDocError(result.error);
   }
+
+  async function handleRemove(doc: DocItem) {
+    if (!supabase) return;
+    if (!window.confirm(`Delete ${doc.name}? This can't be undone.`)) return;
+    setBusyPath(doc.path);
+    setDocError(null);
+    const result = await deleteDocument(supabase, doc);
+    setBusyPath(null);
+    if (result.ok) setDocs((prev) => prev.filter((d) => d.path !== doc.path));
+    else setDocError(result.error);
+  }
+
+  const canUpload = Boolean(supabase && businessId && !uploading);
 
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
-    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+    if (canUpload) handleUploadFiles(Array.from(e.dataTransfer.files));
   }
 
   return (
@@ -89,15 +184,27 @@ export default function ProfilePage() {
         Your details, your GST credentials, and your documents — all in one place.
       </p>
 
+      {!CONFIGURED && (
+        <div className="mb-6 rounded-xl border border-line bg-amber-soft px-4 py-3 text-[13px] text-ink">
+          Not connected to Supabase yet — add your keys to .env.local to turn on
+          saving. Uploads are disabled until then.
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-6 rounded-xl bg-red-soft px-4 py-3 text-[13px] text-red">
+          {loadError}
+        </div>
+      )}
+
       {/* Profile header */}
       <div className="mb-6 flex flex-wrap items-center gap-[22px] rounded-[16px] border border-line bg-surface p-8 shadow-sm">
         <div className="relative h-[92px] w-[92px] shrink-0">
-          {avatarSrc ? (
+          {avatarUrl && isOwnAvatarUrl(avatarUrl, SUPABASE_URL) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={avatarSrc}
+              src={avatarUrl}
               alt="Profile picture"
-              className="h-full w-full rounded-full object-cover"
+              className={`h-full w-full rounded-full object-cover ${avatarBusy ? "opacity-50" : ""}`}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center rounded-full bg-surface-2 font-serif text-[30px] text-ink-soft">
@@ -106,15 +213,16 @@ export default function ProfilePage() {
           )}
           <button
             onClick={() => avatarInputRef.current?.click()}
+            disabled={!supabase || !userId || avatarBusy}
             title="Upload profile picture"
-            className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full border-[3px] border-surface bg-ink text-[13px] text-bg"
+            className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full border-[3px] border-surface bg-ink text-[13px] text-bg disabled:opacity-50"
           >
-            📷
+            {avatarBusy ? "…" : "📷"}
           </button>
           <input
             ref={avatarInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             className="hidden"
             onChange={handleAvatarChange}
           />
@@ -123,6 +231,7 @@ export default function ProfilePage() {
           <h2 className="font-serif text-[21px] font-medium">Subhomoy Das</h2>
           <div className="text-[13px] text-ink-soft">Owner · Sharma Textiles &amp; Co.</div>
           <div className="mt-2 text-[11.5px] text-ink-soft">Member since September 2026</div>
+          {avatarError && <p className="mt-2 text-xs text-red">{avatarError}</p>}
         </div>
       </div>
 
@@ -173,71 +282,93 @@ export default function ProfilePage() {
             </div>
             <h2 className="font-serif text-[17px] font-medium">Certificates &amp; documents</h2>
           </div>
-          <span className="mt-[3px] text-[12.5px] text-ink-soft">
-            {docs.length} uploaded
-          </span>
+          <span className="mt-[3px] text-[12.5px] text-ink-soft">{docs.length} uploaded</span>
         </div>
 
         <div
-          onClick={() => docInputRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onClick={() => canUpload && docInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (canUpload) setDragOver(true);
+          }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          className={`mx-[22px] mt-2 cursor-pointer rounded-[14px] border-2 border-dashed px-[30px] py-[30px] text-center transition ${
-            dragOver ? "border-amber bg-amber-soft" : "border-line"
-          }`}
+          className={`mx-[22px] mt-2 rounded-[14px] border-2 border-dashed px-[30px] py-[30px] text-center transition ${
+            canUpload ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+          } ${dragOver ? "border-amber bg-amber-soft" : "border-line"}`}
         >
           <div className="mb-2 text-[26px]">📁</div>
           <p className="text-[13.5px] text-ink-soft">
-            Drag &amp; drop a file here, or click to upload
+            {uploading
+              ? "Uploading…"
+              : "Drag & drop a file here, or click to upload"}
           </p>
           <p className="mt-1 text-[11.5px] text-ink-soft">
-            GST certificate, PAN card, business registration, Udyam
-            certificate — kept here so you always have a copy to download,
-            even offline.
+            GST certificate, PAN card, business registration, Udyam certificate
+            — kept here so you always have a copy to download, even offline.
+            PDF or image, up to 10 MB each.
           </p>
         </div>
         <input
           ref={docInputRef}
           type="file"
           multiple
+          accept=".pdf,.png,.jpg,.jpeg,.webp"
           className="hidden"
-          onChange={(e) => e.target.files && addFiles(e.target.files)}
+          onChange={(e) => {
+            const files = e.target.files ? Array.from(e.target.files) : [];
+            e.target.value = "";
+            handleUploadFiles(files);
+          }}
         />
+
+        {!loading && CONFIGURED && !businessId && !loadError && (
+          <p className="mx-[22px] mt-3 text-[12.5px] text-ink-soft">
+            Your account isn&apos;t linked to a business yet, so documents can&apos;t be stored.
+          </p>
+        )}
+        {docError && (
+          <p className="mx-[22px] mt-3 rounded-lg bg-red-soft px-3.5 py-2.5 text-[12.5px] text-red">
+            {docError}
+          </p>
+        )}
 
         <div className="flex flex-col gap-2.5 px-[22px] py-[18px]">
           {docs.length === 0 ? (
             <div className="text-[13px] italic text-ink-soft">
-              No documents uploaded yet.
+              {loading ? "Loading your documents…" : "No documents uploaded yet."}
             </div>
           ) : (
             docs.map((doc) => (
               <div
-                key={doc.id}
+                key={doc.path}
                 className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-3"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-surface-2 text-base">
-                  {fileIcon(doc.file.name)}
+                  {fileIcon(doc.name)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-medium">{doc.file.name}</div>
+                  <div className="truncate text-[13.5px] font-medium">{doc.name}</div>
                   <div className="text-[11px] text-ink-soft">
-                    {formatSize(doc.file.size)} · uploaded just now
+                    {[doc.size !== null ? formatBytes(doc.size) : "", formatDate(doc.createdAt)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  <a
-                    href={doc.url}
-                    download={doc.file.name}
+                  <button
+                    onClick={() => handleDownload(doc)}
+                    disabled={busyPath === doc.path}
                     title="Download"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-[13px] text-ink"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-[13px] text-ink disabled:opacity-50"
                   >
                     ⬇
-                  </a>
+                  </button>
                   <button
-                    onClick={() => removeDoc(doc.id)}
+                    onClick={() => handleRemove(doc)}
+                    disabled={busyPath === doc.path}
                     title="Remove"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-[13px] text-ink transition hover:bg-red-soft hover:text-red"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-[13px] text-ink transition hover:bg-red-soft hover:text-red disabled:opacity-50"
                   >
                     ✕
                   </button>

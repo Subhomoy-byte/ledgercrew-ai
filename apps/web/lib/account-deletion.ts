@@ -2,11 +2,15 @@
 // everything it needs is passed in via `deps` — so every path (including
 // failures) can be tested without a real database.
 //
-// Ordering is deliberate: if this user is the last member of their business,
-// the business is removed FIRST, then the login. If the second step fails the
-// user simply retries: their profile no longer points at a business, so the
-// retry skips straight to deleting the login. Nothing is left half-deleted
-// in a state that can't be recovered from.
+// Ordering is deliberate. For the last member of a business:
+//   1. remove the business's uploaded documents,
+//   2. remove the business,
+//   3. remove the user's profile picture,
+//   4. remove the login.
+// If any step fails, the user simply retries: files are removed before the
+// records that point to them, and once the business is gone the profile no
+// longer references it, so a retry skips straight to steps 3 and 4. Nothing is
+// left in a state that can't be recovered from.
 
 export type DeletionResult = { ok: true } | { ok: false; error: string };
 
@@ -20,7 +24,9 @@ export interface DeletionDeps {
     businessId: string,
     userId: string
   ): Promise<DbResult<number>>;
+  removeBusinessFiles(businessId: string): Promise<{ error: string | null }>;
   deleteBusiness(businessId: string): Promise<{ error: string | null }>;
+  removeUserFiles(userId: string): Promise<{ error: string | null }>;
   deleteUser(userId: string): Promise<{ error: string | null }>;
 }
 
@@ -53,14 +59,29 @@ export async function deleteAccount(
         );
       }
     } else {
+      const files = await deps.removeBusinessFiles(businessId);
+      if (files.error) {
+        return fail(
+          "We couldn't remove your uploaded documents, so your account wasn't closed. Some files may already have been removed. Please try again."
+        );
+      }
       const removed = await deps.deleteBusiness(businessId);
       if (removed.error) {
         return fail(
-          "We couldn't remove your business data, so nothing was deleted. Please try again."
+          "We couldn't remove your business data, so your account wasn't closed. Please try again."
         );
       }
       businessRemoved = true;
     }
+  }
+
+  const avatar = await deps.removeUserFiles(userId);
+  if (avatar.error) {
+    return fail(
+      businessRemoved
+        ? "Your business data was removed, but we couldn't remove your profile picture. Please try again."
+        : "We couldn't remove your profile picture, so your account wasn't closed. Please try again."
+    );
   }
 
   const user = await deps.deleteUser(userId);
