@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { formatBytes, isOwnAvatarUrl } from "@/lib/storage";
@@ -11,10 +11,94 @@ import {
   uploadAvatar,
   uploadDocument,
   type DocItem,
+  type Result,
 } from "@/lib/storage-client";
+import {
+  BUSINESS_TYPES,
+  EMPTY_BUSINESS,
+  EMPTY_GST,
+  EMPTY_PERSONAL,
+  normalizeBusiness,
+  normalizeGst,
+  normalizePersonal,
+  stateFromGstin,
+  validateBusiness,
+  validateGst,
+  validatePersonal,
+  type BusinessValues,
+  type GstValues,
+  type PersonalValues,
+} from "@/lib/profile-fields";
+import { loadProfile, saveBusiness, saveGst, savePersonal } from "@/lib/profile-client";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const CONFIGURED = Boolean(SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+type Status = { kind: "ok" | "error"; text: string };
+
+function notReady<T>(): Promise<Result<T>> {
+  return Promise.resolve({ ok: false, error: "Not connected to Supabase yet." });
+}
+
+/**
+ * State for one form card: current values, last-saved values, which errors to
+ * show (only for fields the person has touched, or after pressing Save), and
+ * the save itself.
+ */
+function useSection<T extends Record<string, string>>(opts: {
+  empty: T;
+  validate: (v: T) => Partial<Record<keyof T, string>>;
+  normalize: (v: T) => unknown;
+  save: (v: T) => Promise<Result<T>>;
+}) {
+  const [values, setValues] = useState<T>(opts.empty);
+  const [saved, setSaved] = useState<T>(opts.empty);
+  const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
+  const [attempted, setAttempted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<Status | null>(null);
+
+  const errors = opts.validate(values);
+  const dirty = JSON.stringify(opts.normalize(values)) !== JSON.stringify(opts.normalize(saved));
+  const visibleErrors: Partial<Record<keyof T, string>> = {};
+  for (const key of Object.keys(errors) as (keyof T)[]) {
+    if (attempted || touched[key]) visibleErrors[key] = errors[key];
+  }
+
+  function load(v: T) {
+    setValues(v);
+    setSaved(v);
+    setTouched({});
+    setAttempted(false);
+    setStatus(null);
+  }
+  function setField(key: keyof T, value: string) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    setStatus(null);
+  }
+  function touch(key: keyof T) {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+  }
+  async function submit() {
+    setAttempted(true);
+    if (Object.keys(errors).length > 0) return;
+    setSaving(true);
+    setStatus(null);
+    const result = await opts.save(values);
+    setSaving(false);
+    if (result.ok) {
+      setValues(result.value);
+      setSaved(result.value);
+      setTouched({});
+      setAttempted(false);
+      setStatus({ kind: "ok", text: "Saved." });
+    } else {
+      setStatus({ kind: "error", text: result.error });
+    }
+  }
+
+  return { values, saved, errors: visibleErrors, dirty, saving, status, load, setField, touch, submit };
+}
 
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -31,28 +115,118 @@ function formatDate(iso: string | null) {
     : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function Field({
+function initialsFor(name: string, email: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (email[0] ?? "?").toUpperCase();
+}
+
+function TextField({
   label,
-  defaultValue,
+  value,
+  onChange,
+  onBlur,
+  error,
+  hint,
   readOnly,
+  disabled,
+  placeholder,
+  list,
+  className,
+  capitalize,
 }: {
   label: string;
-  defaultValue: string;
+  value: string;
+  onChange?: (v: string) => void;
+  onBlur?: () => void;
+  error?: string;
+  hint?: string;
   readOnly?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  list?: string;
+  className?: string;
+  capitalize?: boolean;
 }) {
+  const id = useId();
+  const muted = readOnly || disabled;
   return (
-    <div>
-      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+    <div className={className}>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-ink-soft"
+      >
         {label}
       </label>
       <input
+        id={id}
         type="text"
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
+        onBlur={onBlur}
         readOnly={readOnly}
-        className={`w-full rounded-[10px] border border-line px-3.5 py-[11px] text-[13.5px] outline-none transition focus:border-amber ${
-          readOnly ? "bg-surface-2 text-ink-soft" : "bg-bg text-ink"
-        }`}
+        disabled={disabled}
+        placeholder={placeholder}
+        list={list}
+        autoCapitalize={capitalize ? "characters" : undefined}
+        spellCheck={capitalize ? false : undefined}
+        aria-invalid={error ? true : undefined}
+        className={`w-full rounded-[10px] border px-3.5 py-[11px] text-[13.5px] outline-none transition focus:border-amber ${
+          error ? "border-red" : "border-line"
+        } ${muted ? "bg-surface-2 text-ink-soft" : "bg-bg text-ink"}`}
       />
+      {error ? (
+        <p className="mt-1 text-xs text-red">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11.5px] text-ink-soft">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SaveBar({
+  dirty,
+  saving,
+  status,
+  editable,
+  note,
+}: {
+  dirty: boolean;
+  saving: boolean;
+  status: Status | null;
+  editable: boolean;
+  note?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t border-line px-[22px] py-4">
+      <button
+        type="submit"
+        disabled={!editable || !dirty || saving}
+        className="rounded-full bg-ink px-5 py-2.5 text-[13px] font-medium text-bg disabled:opacity-40"
+      >
+        {saving ? "Saving…" : "Save changes"}
+      </button>
+      {status && (
+        <span
+          role={status.kind === "error" ? "alert" : "status"}
+          className={`text-[12.5px] ${status.kind === "ok" ? "text-green" : "text-red"}`}
+        >
+          {status.text}
+        </span>
+      )}
+      {!editable && note && <span className="text-[12.5px] text-ink-soft">{note}</span>}
+    </div>
+  );
+}
+
+function CardHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="border-b border-line px-[22px] py-[18px]">
+      <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+        {eyebrow}
+      </div>
+      <h2 className="font-serif text-[17px] font-medium">{title}</h2>
     </div>
   );
 }
@@ -63,6 +237,8 @@ export default function ProfilePage() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("member");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [loading, setLoading] = useState(CONFIGURED);
@@ -75,6 +251,25 @@ export default function ProfilePage() {
   const [dragOver, setDragOver] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+
+  const personal = useSection<PersonalValues>({
+    empty: EMPTY_PERSONAL,
+    validate: validatePersonal,
+    normalize: normalizePersonal,
+    save: (v) => (supabase && userId ? savePersonal(supabase, userId, v) : notReady()),
+  });
+  const business = useSection<BusinessValues>({
+    empty: EMPTY_BUSINESS,
+    validate: validateBusiness,
+    normalize: normalizeBusiness,
+    save: (v) => (supabase && businessId ? saveBusiness(supabase, businessId, v) : notReady()),
+  });
+  const gst = useSection<GstValues>({
+    empty: EMPTY_GST,
+    validate: validateGst,
+    normalize: normalizeGst,
+    save: (v) => (supabase && businessId ? saveGst(supabase, businessId, v) : notReady()),
+  });
 
   useEffect(() => {
     if (CONFIGURED) setSupabase(createClient());
@@ -91,26 +286,27 @@ export default function ProfilePage() {
         setLoading(false);
         return;
       }
-      setUserId(auth.user.id);
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("business_id, avatar_url")
-        .eq("id", auth.user.id)
-        .maybeSingle();
+      const loaded = await loadProfile(supabase, auth.user.id);
       if (cancelled) return;
-      if (profileError) {
-        setLoadError("We couldn't load your profile.");
+      if (!loaded.ok) {
+        setLoadError(loaded.error);
         setLoading(false);
         return;
       }
 
-      setAvatarUrl(profile?.avatar_url ?? null);
-      const bid: string | null = profile?.business_id ?? null;
-      setBusinessId(bid);
+      const p = loaded.value;
+      setUserId(p.userId);
+      setEmail(p.email);
+      setRole(p.role);
+      setAvatarUrl(p.avatarUrl);
+      setBusinessId(p.businessId);
+      personal.load(p.personal);
+      business.load(p.business);
+      gst.load(p.gst);
 
-      if (bid) {
-        const listed = await listDocuments(supabase, bid);
+      if (p.businessId) {
+        const listed = await listDocuments(supabase, p.businessId);
         if (cancelled) return;
         if (listed.ok) setDocs(listed.value);
         else setDocError(listed.error);
@@ -120,6 +316,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   async function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
@@ -170,12 +367,18 @@ export default function ProfilePage() {
   }
 
   const canUpload = Boolean(supabase && businessId && !uploading);
+  const isOwner = role === "owner";
+  const personalEditable = Boolean(supabase && userId);
+  const businessEditable = Boolean(supabase && businessId && isOwner);
 
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
     if (canUpload) handleUploadFiles(Array.from(e.dataTransfer.files));
   }
+
+  const shownName = personal.saved.full_name.trim();
+  const ownerNote = "Only the business owner can change these details.";
 
   return (
     <>
@@ -187,7 +390,7 @@ export default function ProfilePage() {
       {!CONFIGURED && (
         <div className="mb-6 rounded-xl border border-line bg-amber-soft px-4 py-3 text-[13px] text-ink">
           Not connected to Supabase yet — add your keys to .env.local to turn on
-          saving. Uploads are disabled until then.
+          saving. Everything below is disabled until then.
         </div>
       )}
       {loadError && (
@@ -208,7 +411,7 @@ export default function ProfilePage() {
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center rounded-full bg-surface-2 font-serif text-[30px] text-ink-soft">
-              SD
+              {initialsFor(shownName, email)}
             </div>
           )}
           <button
@@ -228,49 +431,176 @@ export default function ProfilePage() {
           />
         </div>
         <div>
-          <h2 className="font-serif text-[21px] font-medium">Subhomoy Das</h2>
-          <div className="text-[13px] text-ink-soft">Owner · Sharma Textiles &amp; Co.</div>
-          <div className="mt-2 text-[11.5px] text-ink-soft">Member since September 2026</div>
+          <h2 className="font-serif text-[21px] font-medium">
+            {shownName || (loading ? "Loading…" : "Your name")}
+          </h2>
+          <div className="text-[13px] text-ink-soft">
+            {isOwner ? "Owner" : "Team member"}
+            {business.saved.name ? ` · ${business.saved.name}` : ""}
+          </div>
+          {email && <div className="mt-2 text-[11.5px] text-ink-soft">{email}</div>}
           {avatarError && <p className="mt-2 text-xs text-red">{avatarError}</p>}
         </div>
       </div>
 
-      {/* Personal & business details */}
+      {/* Your details */}
       <div className="mb-6 rounded-[16px] border border-line bg-surface shadow-sm">
-        <div className="border-b border-line px-[22px] py-[18px]">
-          <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-            Personal &amp; business details
+        <CardHeader eyebrow="Personal" title="Your details" />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            personal.submit();
+          }}
+        >
+          <div className="grid grid-cols-1 gap-4 px-[22px] py-[22px] pt-4 sm:grid-cols-2">
+            <TextField
+              label="Full name"
+              value={personal.values.full_name}
+              onChange={(v) => personal.setField("full_name", v)}
+              onBlur={() => personal.touch("full_name")}
+              error={personal.errors.full_name}
+              disabled={!personalEditable}
+              placeholder="Your name"
+            />
+            <TextField
+              label="Email"
+              value={email}
+              readOnly
+              hint="This is the email you sign in with."
+            />
+            <TextField
+              label="Phone"
+              value={personal.values.phone}
+              onChange={(v) => personal.setField("phone", v)}
+              onBlur={() => personal.touch("phone")}
+              error={personal.errors.phone}
+              disabled={!personalEditable}
+              placeholder="+91 98300 00000"
+            />
           </div>
-          <h2 className="font-serif text-[17px] font-medium">Your details</h2>
-        </div>
-        <div className="grid grid-cols-1 gap-4 px-[22px] py-[22px] pt-2 sm:grid-cols-2">
-          <Field label="Full name" defaultValue="Subhomoy Das" />
-          <Field label="Email" defaultValue="subhomoy@sharmatextiles.in" />
-          <Field label="Phone" defaultValue="+91 98XXX XXXXX" />
-          <Field label="Business name" defaultValue="Sharma Textiles & Co." />
-          <Field label="Business type" defaultValue="Sole Proprietorship" />
-          <Field label="Business address" defaultValue="Kolkata, West Bengal" />
-        </div>
+          <SaveBar
+            dirty={personal.dirty}
+            saving={personal.saving}
+            status={personal.status}
+            editable={personalEditable}
+          />
+        </form>
       </div>
 
-      {/* GST & tax credentials */}
+      {/* Business details */}
       <div className="mb-6 rounded-[16px] border border-line bg-surface shadow-sm">
-        <div className="border-b border-line px-[22px] py-[18px]">
-          <div className="mb-[3px] text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-            Tax credentials
+        <CardHeader eyebrow="Business" title="Business details" />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            business.submit();
+          }}
+        >
+          <div className="grid grid-cols-1 gap-4 px-[22px] py-[22px] pt-4 sm:grid-cols-2">
+            <TextField
+              label="Business name"
+              value={business.values.name}
+              onChange={(v) => business.setField("name", v)}
+              onBlur={() => business.touch("name")}
+              error={business.errors.name}
+              disabled={!businessEditable}
+              placeholder="Your business name"
+            />
+            <TextField
+              label="Business type"
+              value={business.values.business_type}
+              onChange={(v) => business.setField("business_type", v)}
+              onBlur={() => business.touch("business_type")}
+              error={business.errors.business_type}
+              disabled={!businessEditable}
+              placeholder="e.g. Partnership"
+              list="business-types"
+            />
+            <TextField
+              className="sm:col-span-2"
+              label="Business address"
+              value={business.values.address}
+              onChange={(v) => business.setField("address", v)}
+              onBlur={() => business.touch("address")}
+              error={business.errors.address}
+              disabled={!businessEditable}
+              placeholder="Street, city, state, PIN"
+            />
           </div>
-          <h2 className="font-serif text-[17px] font-medium">GST &amp; registration details</h2>
-        </div>
-        <div className="grid grid-cols-1 gap-4 px-[22px] py-[22px] pt-2 sm:grid-cols-2">
-          <Field label="GSTIN" defaultValue="19ABCDE1234F1Z5" readOnly />
-          <Field label="PAN" defaultValue="ABCDE1234F" readOnly />
-          <Field label="Business registration no." defaultValue="U74999WB2026PTC123456" readOnly />
-          <Field label="State jurisdiction" defaultValue="West Bengal" readOnly />
-        </div>
-        <div className="mx-[22px] mb-5 flex items-center gap-2 rounded-lg bg-surface-2 px-[15px] py-[11px] text-xs text-ink-soft">
-          🔒 Login password and other security credentials are never shown
-          here — manage those separately in Settings.
-        </div>
+          <datalist id="business-types">
+            {BUSINESS_TYPES.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+          <SaveBar
+            dirty={business.dirty}
+            saving={business.saving}
+            status={business.status}
+            editable={businessEditable}
+            note={supabase && businessId && !isOwner ? ownerNote : undefined}
+          />
+        </form>
+      </div>
+
+      {/* GST & registration */}
+      <div className="mb-6 rounded-[16px] border border-line bg-surface shadow-sm">
+        <CardHeader eyebrow="Tax credentials" title="GST & registration details" />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            gst.submit();
+          }}
+        >
+          <div className="grid grid-cols-1 gap-4 px-[22px] py-[22px] pt-4 sm:grid-cols-2">
+            <TextField
+              label="GSTIN"
+              value={gst.values.gstin}
+              onChange={(v) => gst.setField("gstin", v)}
+              onBlur={() => gst.touch("gstin")}
+              error={gst.errors.gstin}
+              disabled={!businessEditable}
+              placeholder="e.g. 27AAPFU0939F1ZV"
+              capitalize
+            />
+            <TextField
+              label="PAN"
+              value={gst.values.pan}
+              onChange={(v) => gst.setField("pan", v)}
+              onBlur={() => gst.touch("pan")}
+              error={gst.errors.pan}
+              disabled={!businessEditable}
+              placeholder="e.g. ABCDE1234F"
+              capitalize
+            />
+            <TextField
+              label="Business registration no."
+              value={gst.values.registration_number}
+              onChange={(v) => gst.setField("registration_number", v)}
+              onBlur={() => gst.touch("registration_number")}
+              error={gst.errors.registration_number}
+              disabled={!businessEditable}
+              placeholder="Optional"
+            />
+            <TextField
+              label="State jurisdiction"
+              value={stateFromGstin(gst.values.gstin) ?? ""}
+              readOnly
+              placeholder="Filled in from your GSTIN"
+              hint="Worked out from the first two digits of your GSTIN."
+            />
+          </div>
+          <div className="mx-[22px] mb-5 flex items-center gap-2 rounded-lg bg-surface-2 px-[15px] py-[11px] text-xs text-ink-soft">
+            🔒 Login password and other security credentials are never shown
+            here — manage those separately in Settings.
+          </div>
+          <SaveBar
+            dirty={gst.dirty}
+            saving={gst.saving}
+            status={gst.status}
+            editable={businessEditable}
+            note={supabase && businessId && !isOwner ? ownerNote : undefined}
+          />
+        </form>
       </div>
 
       {/* Document vault */}
@@ -299,9 +629,7 @@ export default function ProfilePage() {
         >
           <div className="mb-2 text-[26px]">📁</div>
           <p className="text-[13.5px] text-ink-soft">
-            {uploading
-              ? "Uploading…"
-              : "Drag & drop a file here, or click to upload"}
+            {uploading ? "Uploading…" : "Drag & drop a file here, or click to upload"}
           </p>
           <p className="mt-1 text-[11.5px] text-ink-soft">
             GST certificate, PAN card, business registration, Udyam certificate
