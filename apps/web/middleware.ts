@@ -10,6 +10,9 @@ function isPublicPath(pathname: string): boolean {
   // Route Handlers manage their own auth (webhook signatures, etc.) —
   // this middleware shouldn't bounce them to /login.
   if (pathname.startsWith("/api")) return true;
+  // The sign-in return trip (OAuth callback) arrives before any session
+  // exists, so it has to be reachable by logged-out visitors.
+  if (pathname.startsWith("/auth/")) return true;
   return PUBLIC_PATHS.includes(pathname);
 }
 

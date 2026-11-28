@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { signInAction, signUpAction, initialAuthState } from "./actions";
+import { createClient } from "@/lib/supabase/client";
 
 function GoogleIcon() {
   return (
@@ -38,9 +39,14 @@ const FLOAT_POSITIONS = [
   { top: "48%", left: "6%", delay: "1.7s", initial: "Ca" },
 ];
 
+const SUPABASE_CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
 export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [oauthNotice, setOauthNotice] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [state, formAction, isPending] = useActionState(
     mode === "signin" ? signInAction : signUpAction,
     initialAuthState
@@ -55,6 +61,34 @@ export default function LoginPage() {
   function handleOAuthStub(provider: string) {
     setOauthNotice(`${provider} sign-in is coming soon — use email for now.`);
   }
+
+  async function handleGoogleSignIn() {
+    setOauthNotice(null);
+    if (!SUPABASE_CONFIGURED) {
+      setOauthNotice("Not connected to Supabase yet — add your keys to .env.local first.");
+      return;
+    }
+    setGoogleBusy(true);
+    const { error } = await createClient().auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    // On success the browser is already on its way to Google, so there is
+    // nothing more to do here — only a failure to START sign-in comes back.
+    if (error) {
+      setGoogleBusy(false);
+      setOauthNotice("We couldn't start Google sign-in. Please try again, or use email.");
+    }
+  }
+
+  // The callback sends people back here with ?error=... if Google sign-in
+  // didn't finish. Only known codes are shown, never arbitrary text.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code === "oauth_denied") setOauthNotice("Google sign-in was cancelled.");
+    else if (code === "oauth_failed")
+      setOauthNotice("Google sign-in didn't complete. Please try again.");
+  }, []);
 
   useEffect(() => {
     const reduceMotion = window.matchMedia(
@@ -218,11 +252,12 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={() => handleOAuthStub("Google")}
-          className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white py-3 text-[13.5px] font-medium text-[#3c4043] transition hover:shadow-md"
+          onClick={handleGoogleSignIn}
+          disabled={googleBusy}
+          className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white py-3 text-[13.5px] font-medium text-[#3c4043] transition hover:shadow-md disabled:opacity-60"
         >
           <GoogleIcon />
-          Continue with Google
+          {googleBusy ? "Opening Google…" : "Continue with Google"}
         </button>
         <button
           type="button"
